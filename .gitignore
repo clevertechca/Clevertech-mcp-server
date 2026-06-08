@@ -26,5 +26,5 @@ Thumbs.db
 .env
 .env.local
 
-# uv
-uv.lock
+# uv (lockfile is committed for reproducible builds — keep commented)
+# uv.lock

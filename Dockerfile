@@ -8,10 +8,10 @@ RUN apt-get update && \
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml ./
 COPY src/ ./src/
 
-RUN uv sync --frozen --no-dev
+RUN uv sync --no-dev
 
 ENV PORT=8001
 

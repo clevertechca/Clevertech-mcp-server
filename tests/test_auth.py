@@ -46,6 +46,9 @@ def _make_context(
         request.client.host = client_host
 
         ctx.request = request
+    else:
+        # Explicitly set request to None so MagicMock doesn't auto-create it
+        ctx.request = None
     return ctx
 
 

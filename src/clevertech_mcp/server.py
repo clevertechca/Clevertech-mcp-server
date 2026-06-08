@@ -7,10 +7,17 @@ import sys
 import argparse
 import json
 from mcp.server.fastmcp import FastMCP
+from starlette.responses import JSONResponse
+from starlette.routing import Route
 
 from clevertech_mcp.config import load_config
 from clevertech_mcp.client import CleverTechClient
 from clevertech_mcp.tools import register_all_tools
+
+
+async def health_endpoint(request):
+    """Health check endpoint for Railway deployment."""
+    return JSONResponse({"status": "ok", "service": "clevertech-mcp"})
 
 
 def create_server(config: dict) -> FastMCP:
@@ -23,6 +30,19 @@ def create_server(config: dict) -> FastMCP:
     )
 
     register_all_tools(mcp, client, config)
+
+    # Attach health endpoint to the underlying Starlette app for SSE mode
+    sse_app = mcp.sse_app()
+    # Check if /health already registered; insert at front
+    has_health = any(
+        getattr(route, "path", "") == "/health"
+        for route in getattr(sse_app, "routes", [])
+    )
+    if not has_health:
+        sse_app.router.routes.insert(
+            0, Route("/health", endpoint=health_endpoint)
+        )
+
     return mcp
 
 

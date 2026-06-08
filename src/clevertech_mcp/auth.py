@@ -65,5 +65,5 @@ def get_upstream_key(
 
 
 def is_authenticated(user_api_key: Optional[str]) -> bool:
-    """Return ``True`` when the user has supplied their own API key."""
-    return user_api_key is not None
+    """Check if a user API key was provided."""
+    return bool(user_api_key)  # Empty string is not authenticated

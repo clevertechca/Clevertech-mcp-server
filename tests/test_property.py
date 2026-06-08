@@ -180,10 +180,8 @@ class TestPropertyReport:
 
         assert "# Property Report" in result
         assert "**Address:** Minimal Ave" in result
-        # Assessment section exists but values are N/A
-        assert "- Assessed Value: N/A" in result
-        assert "- Land: N/A" in result
-        assert "- Year Built: N/A" in result
+        # Assessment section absent when property data is empty (falsy dict)
+        assert "## Assessment" not in result
         # Permits and Zoning sections absent
         assert "Building Permits" not in result
         assert "## Zoning" not in result
