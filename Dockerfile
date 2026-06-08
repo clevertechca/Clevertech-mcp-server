@@ -13,6 +13,10 @@ COPY src/ ./src/
 
 RUN uv sync --frozen --no-dev
 
-ENV PORT=8001
+# PORT is set by Railway platform automatically — don't override
+# The CMD defaults to $PORT (from env) or 8001 locally
+ENV LOG_LEVEL=INFO
+ENV TRANSPORT=sse
 
-CMD ["uv", "run", "clevertech-mcp-server", "--transport", "sse", "--host", "0.0.0.0", "--port", "8001"]
+# Use shell form so $PORT from Railway is respected (default 8001 locally)
+CMD uv run clevertech-mcp-server --transport sse --host 0.0.0.0 --port ${PORT:-8001}
