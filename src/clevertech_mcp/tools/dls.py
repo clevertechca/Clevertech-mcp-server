@@ -63,7 +63,7 @@ def register_dls_tools(mcp: FastMCP, client: CleverTechClient, config: dict) -> 
             lines.append(f"Confidence: {data['confidence']}")
         if data.get("distance_km"):
             lines.append(f"Distance to grid center: {data['distance_km']} km")
-        if data.get("message"):
+        if data.get("_message"):
             lines.append(f"\n{data['message']}")
 
         return "\n".join(lines) if lines else "No result returned."
@@ -113,7 +113,7 @@ def register_dls_tools(mcp: FastMCP, client: CleverTechClient, config: dict) -> 
         if len(results) > 20:
             lines.append(f"\n... and {len(results) - 20} more")
 
-        if data.get("message"):
+        if data.get("_message"):
             lines.append(f"\n{data['message']}")
 
         return "\n".join(lines)

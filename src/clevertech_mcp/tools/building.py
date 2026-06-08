@@ -48,7 +48,7 @@ def register_building_tools(mcp: FastMCP, client: CleverTechClient, config: dict
                 f"Status: {r.get('status', 'N/A')}",
                 f"Address: {r.get('address', 'N/A')}",
                 f"Applicant: {r.get('applicant', 'N/A')}",
-                f"Value: ${r.get('job_value', 0):,.0f}" if r.get('job_value') else "Value: N/A",
+                f"Value: ${r.get('job_value', 0):,.0f}" if r.get('job_value') is not None else "Value: N/A",
                 f"Issued: {r.get('issued_date', 'N/A')}",
             ])
 
@@ -88,7 +88,7 @@ def register_building_tools(mcp: FastMCP, client: CleverTechClient, config: dict
                 f"Type: {r.get('permit_type', 'N/A')}",
                 f"Status: {r.get('status', 'N/A')}",
                 f"Address: {r.get('address', 'N/A')}",
-                f"Value: ${r.get('job_value', 0):,.0f}" if r.get('job_value') else "Value: N/A",
+                f"Value: ${r.get('job_value', 0):,.0f}" if r.get('job_value') is not None else "Value: N/A",
                 f"Issued: {r.get('issued_date', 'N/A')}",
             ])
 

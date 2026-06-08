@@ -30,19 +30,6 @@ def create_server(config: dict) -> FastMCP:
     )
 
     register_all_tools(mcp, client, config)
-
-    # Attach health endpoint to the underlying Starlette app for SSE mode
-    sse_app = mcp.sse_app()
-    # Check if /health already registered; insert at front
-    has_health = any(
-        getattr(route, "path", "") == "/health"
-        for route in getattr(sse_app, "routes", [])
-    )
-    if not has_health:
-        sse_app.router.routes.insert(
-            0, Route("/health", endpoint=health_endpoint)
-        )
-
     return mcp
 
 
@@ -77,6 +64,13 @@ def main():
     mcp = create_server(config)
 
     if args.transport == "sse":
+        # Register /health endpoint for Railway health checks
+        sse_app = mcp.sse_app()
+        if not any(
+            getattr(r, "path", "") == "/health"
+            for r in getattr(sse_app, "routes", [])
+        ):
+            sse_app.router.routes.insert(0, Route("/health", endpoint=health_endpoint))
         mcp.run(transport="sse", host=args.host, port=args.port)
     else:
         mcp.run(transport="stdio")
