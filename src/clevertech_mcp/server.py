@@ -71,7 +71,8 @@ def main():
             for r in getattr(sse_app, "routes", [])
         ):
             sse_app.router.routes.insert(0, Route("/health", endpoint=health_endpoint))
-        mcp.run(transport="sse", host=args.host, port=args.port)
+        import uvicorn
+        uvicorn.run(sse_app, host=args.host, port=args.port)
     else:
         mcp.run(transport="stdio")
 
