@@ -93,3 +93,35 @@ class TestMain:
         assert "--transport" in captured.out
         assert "--host" in captured.out
         assert "--port" in captured.out
+
+
+# ---------------------------------------------------------------------------
+# Landing page
+# ---------------------------------------------------------------------------
+
+
+class TestLandingPage:
+    """Tests for the root landing page."""
+
+    def test_root_returns_html(self):
+        """GET / returns 200 with text/html content type."""
+        from starlette.testclient import TestClient
+        from starlette.routing import Route
+        from clevertech_mcp.server import create_server, root_endpoint
+
+        config = {"api_url": "https://test-api.example.com"}
+        with (
+            patch("clevertech_mcp.server.CleverTechClient"),
+            patch("clevertech_mcp.server.register_all_tools"),
+        ):
+            mcp = create_server(config)
+            sse_app = mcp.sse_app()
+            # Register / route — same pattern as main()
+            sse_app.router.routes.insert(0, Route("/", endpoint=root_endpoint))
+
+            with TestClient(sse_app) as client:
+                response = client.get("/")
+                assert response.status_code == 200
+                content_type = response.headers.get("content-type", "")
+                assert "text/html" in content_type
+                assert "CleverTech MCP Server" in response.text
