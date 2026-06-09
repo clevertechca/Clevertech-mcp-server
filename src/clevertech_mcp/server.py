@@ -28,7 +28,7 @@ class SSERequestAuthMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request, call_next):
         auth_header = request.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
+        if auth_header[:7].lower() == "bearer ":
             token = _user_api_key_var.set(auth_header[7:])
             try:
                 return await call_next(request)
@@ -83,11 +83,20 @@ def main():
         default=int(os.getenv("PORT", "8001")),
         help="Port to bind when using SSE transport (default: %(default)s)",
     )
+    parser.add_argument(
+        "--api-key",
+        default=None,
+        help="CleverTech API key (overrides CLEVERTECH_API_KEY env var)",
+    )
     args = parser.parse_args()
 
     config = load_config()
     config["host"] = args.host
     config["port"] = args.port
+
+    # --api-key flag overrides env var for stdio mode
+    if args.api_key:
+        config["api_key"] = args.api_key
 
     mcp = create_server(config)
 

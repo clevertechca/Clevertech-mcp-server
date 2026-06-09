@@ -103,7 +103,7 @@ def _get_user_api_key(context) -> Optional[str]:
                 request = _safe_getattr(rc, "request")
         if request is not None:
             auth_header = request.headers.get("Authorization", "")
-            if auth_header and auth_header.startswith("Bearer "):
+            if auth_header and auth_header[:7].lower() == "bearer ":
                 return auth_header[7:]
 
     return None
