@@ -1,5 +1,7 @@
 """
 CleverTech API client — async httpx wrapper.
+
+Supports per-request API key override for multi-user SSE deployments.
 """
 
 from typing import Any, Optional
@@ -29,10 +31,22 @@ class CleverTechClient:
             )
         return self._client
 
-    async def get(self, path: str, params: Optional[dict[str, Any]] = None) -> Any:
-        """Perform an async GET request and return the parsed JSON body."""
+    async def get(
+        self,
+        path: str,
+        params: Optional[dict[str, Any]] = None,
+        api_key: Optional[str] = None,
+    ) -> Any:
+        """Perform an async GET request.
+
+        When *api_key* is provided, it overrides the default client key
+        *for this request only* — thread-safe, no shared header mutation.
+        """
         client = self._get_client()
-        response = await client.get(path, params=params)
+        headers = {}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        response = await client.get(path, params=params, headers=headers)
         response.raise_for_status()
         return response.json()
 
@@ -40,10 +54,18 @@ class CleverTechClient:
         self,
         path: str,
         json: Optional[dict[str, Any]] = None,
+        api_key: Optional[str] = None,
     ) -> Any:
-        """Perform an async POST request and return the parsed JSON body."""
+        """Perform an async POST request.
+
+        When *api_key* is provided, it overrides the default client key
+        *for this request only* — thread-safe, no shared header mutation.
+        """
         client = self._get_client()
-        response = await client.post(path, json=json)
+        headers = {}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        response = await client.post(path, json=json, headers=headers)
         response.raise_for_status()
         return response.json()
 

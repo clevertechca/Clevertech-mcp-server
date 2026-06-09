@@ -6,13 +6,36 @@ import os
 import sys
 import argparse
 import json
+import contextvars
 from mcp.server.fastmcp import FastMCP
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
 from clevertech_mcp.config import load_config
 from clevertech_mcp.client import CleverTechClient
+from clevertech_mcp.rate_limit import LocalRateLimiter
+from clevertech_mcp.auth import get_user_api_key_var
 from clevertech_mcp.tools import register_all_tools
+
+# Re-export the ContextVar so middleware can write to it.
+_user_api_key_var = get_user_api_key_var()
+
+
+class SSERequestAuthMiddleware(BaseHTTPMiddleware):
+    """Capture ``Authorization: Bearer`` from the initial SSE connection request
+    and store it in a ``ContextVar`` so tool handlers can read it."""
+
+    async def dispatch(self, request, call_next):
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = _user_api_key_var.set(auth_header[7:])
+            try:
+                return await call_next(request)
+            finally:
+                _user_api_key_var.reset(token)
+        else:
+            return await call_next(request)
 
 
 async def health_endpoint(request):
@@ -29,7 +52,12 @@ def create_server(config: dict) -> FastMCP:
         api_key=config.get("api_key"),
     )
 
-    register_all_tools(mcp, client, config)
+    rate_limiter = LocalRateLimiter(
+        daily_limit=config.get("rate_limit_anon_daily", 50),
+        burst_per_minute=config.get("rate_limit_anon_burst", 10),
+    )
+
+    register_all_tools(mcp, client, config, rate_limiter)
     return mcp
 
 
@@ -71,6 +99,10 @@ def main():
             for r in getattr(sse_app, "routes", [])
         ):
             sse_app.router.routes.insert(0, Route("/health", endpoint=health_endpoint))
+
+        # Wrap the SSE app with auth middleware to capture per-connection API keys
+        sse_app.add_middleware(SSERequestAuthMiddleware)
+
         import uvicorn
         uvicorn.run(sse_app, host=args.host, port=args.port)
     else:

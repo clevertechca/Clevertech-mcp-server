@@ -7,7 +7,7 @@ mock request contexts.
 
 import os
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 # Import the functions under test (prefixed with _ since they're internal)
 from clevertech_mcp.auth import (
@@ -16,6 +16,8 @@ from clevertech_mcp.auth import (
     get_upstream_key,
     is_authenticated,
 )
+
+from tests.conftest import MockMCP, register_and_get_tool
 
 
 # ---------------------------------------------------------------------------
@@ -103,8 +105,9 @@ class TestGetUserApiKey:
 
     def test_get_user_api_key_from_header(self):
         """Bearer token extracted from Authorization header."""
-        ctx = _make_context(authorization="Bearer sk-abc123xyz")
-        assert _get_user_api_key(ctx) == "sk-abc123xyz"
+        with patch.dict(os.environ, {}, clear=True):
+            ctx = _make_context(authorization="Bearer sk-abc123xyz")
+            assert _get_user_api_key(ctx) == "sk-abc123xyz"
 
     def test_get_user_api_key_missing(self):
         """No Authorization header returns env fallback or None."""
@@ -180,3 +183,166 @@ class TestIsAuthenticated:
     def test_is_authenticated_false_empty(self):
         """Empty string key → not authenticated (falsy check)."""
         assert is_authenticated("") is False
+
+
+# ===================================================================
+# ContextVar integration
+# ===================================================================
+
+class TestContextVarBridge:
+    """Tests for the ContextVar bridge (SSE middleware path)."""
+
+    def test_contextvar_takes_priority_over_env(self):
+        """ContextVar value returned even when env var is set."""
+        from clevertech_mcp.auth import _user_api_key_var as var
+        with patch.dict(os.environ, {"CLEVERTECH_API_KEY": "server-key"}, clear=True):
+            token = var.set("ctk_user_key")
+            try:
+                # ctx=None means no request context — only ContextVar + env
+                assert _get_user_api_key(None) == "ctk_user_key"
+            finally:
+                var.reset(token)
+
+    def test_contextvar_cleared_falls_back_to_env(self):
+        """After ContextVar reset, falls back to env var."""
+        from clevertech_mcp.auth import _user_api_key_var as var
+        with patch.dict(os.environ, {"CLEVERTECH_API_KEY": "server-key"}, clear=True):
+            token = var.set("ctk_temp")
+            var.reset(token)
+            assert _get_user_api_key(None) == "server-key"
+
+    def test_contextvar_no_key_nor_env(self):
+        """Neither ContextVar nor env set returns None."""
+        from clevertech_mcp.auth import _user_api_key_var as var
+        with patch.dict(os.environ, {}, clear=True):
+            # Ensure ContextVar is clean
+            try:
+                var.get()
+            except ValueError:
+                pass  # Not set
+            var.set(None)  # Reset to default
+            assert _get_user_api_key(None) is None
+
+
+# ===================================================================
+# Integration — auth → client → rate limiter
+# ===================================================================
+
+class TestAuthClientIntegration:
+    """End-to-end: tool handler wiring through auth, client, and rate limiter.
+
+    Uses a real-ish tool registration via conftest to simulate the full
+    chain from ``_get_user_api_key`` → ``get_upstream_key`` →
+    ``client.get/post(api_key=...)`` → ``rate_limiter.check_or_raise``.
+    """
+
+    @pytest.mark.asyncio
+    async def test_tool_with_user_key_sends_user_key(self, mock_client, mock_config):
+        """Authenticated user: client receives their API key."""
+        from clevertech_mcp.auth import _user_api_key_var as var
+        from clevertech_mcp.tools.meta import register_meta_tools
+
+        tool = register_and_get_tool(
+            register_meta_tools, mock_client, mock_config, "list_cities"
+        )
+
+        # Set user API key via ContextVar (simulating SSE middleware)
+        user_key = "ctk_user_test_123"
+        token = var.set(user_key)
+        try:
+            with patch.dict(os.environ, {"CLEVERTECH_API_KEY": "server-key"}, clear=True):
+                mock_client.get = AsyncMock(return_value={"cities": []})
+                await tool()
+        finally:
+            var.reset(token)
+
+        # Verify client received the user API key
+        mock_client.get.assert_called_once()
+        call_kwargs = mock_client.get.call_args[1]
+        assert call_kwargs.get("api_key") == user_key
+
+    @pytest.mark.asyncio
+    async def test_tool_without_key_sends_server_key(self, mock_client, mock_config):
+        """Anonymous user: client receives the server API key from config."""
+        from clevertech_mcp.tools.meta import register_meta_tools
+
+        # Config with a server API key
+        cfg = {**mock_config, "api_key": "ctk_server_456"}
+
+        tool = register_and_get_tool(
+            register_meta_tools, mock_client, cfg, "list_cities"
+        )
+
+        with patch.dict(os.environ, {}, clear=True):
+            mock_client.get = AsyncMock(return_value={"cities": []})
+            await tool()
+
+        # Verify client received the server key (no user key set)
+        mock_client.get.assert_called_once()
+        call_kwargs = mock_client.get.call_args[1]
+        assert call_kwargs.get("api_key") == "ctk_server_456"
+
+    @pytest.mark.asyncio
+    async def test_anonymous_rate_limit_enforced(self):
+        """Anonymous user hitting rate limit gets ValueError."""
+        from clevertech_mcp.auth import _user_api_key_var as var
+        from clevertech_mcp.rate_limit import LocalRateLimiter
+        from unittest.mock import AsyncMock
+
+        # Create a rate limiter with daily limit = 1
+        limiter = LocalRateLimiter(daily_limit=1, burst_per_minute=10)
+
+        # Mock client and config
+        client = MagicMock()
+        client.get = AsyncMock(return_value={"cities": []})
+        cfg = {"api_key": "server-key"}
+
+        mcp = MockMCP()
+        from clevertech_mcp.tools.meta import register_meta_tools
+        register_meta_tools(mcp, client, cfg, limiter)
+        tool = mcp.tools["list_cities"]
+
+        # First call works
+        with patch.dict(os.environ, {}, clear=True):
+            result = await tool()
+            assert result is not None
+
+        # Second call should fail (daily limit = 1)
+        with patch.dict(os.environ, {}, clear=True):
+            with pytest.raises(ValueError, match="Daily rate limit"):
+                await tool()
+
+    @pytest.mark.asyncio
+    async def test_authenticated_user_skips_rate_limit(self):
+        """Authenticated user bypasses local rate limiter entirely."""
+        from clevertech_mcp.auth import _user_api_key_var as var
+        from clevertech_mcp.rate_limit import LocalRateLimiter
+        from unittest.mock import AsyncMock
+
+        # Create a rate limiter with daily limit = 1
+        limiter = LocalRateLimiter(daily_limit=1, burst_per_minute=10)
+
+        client = MagicMock()
+        client.get = AsyncMock(return_value={"cities": []})
+        cfg = {"api_key": "server-key"}
+
+        mcp = MockMCP()
+        from clevertech_mcp.tools.meta import register_meta_tools
+        register_meta_tools(mcp, client, cfg, limiter)
+        tool = mcp.tools["list_cities"]
+
+        # Set user API key
+        token = var.set("ctk_user_paid")
+        try:
+            with patch.dict(os.environ, {}, clear=True):
+                # First call
+                await tool()
+                # Second call — should work because user is authenticated
+                await tool()
+                # Third call — still works
+                await tool()
+        finally:
+            var.reset(token)
+
+        # All 3 calls succeeded because rate limiter was bypassed
+        assert client.get.call_count == 3

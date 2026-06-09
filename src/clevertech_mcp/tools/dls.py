@@ -6,11 +6,20 @@ Canadian provinces (Alberta, Saskatchewan, Manitoba).
 
 from typing import Optional
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Context
 from clevertech_mcp.client import CleverTechClient
+from clevertech_mcp.rate_limit import LocalRateLimiter
+from clevertech_mcp.auth import (
+    _get_user_api_key,
+    get_upstream_key,
+    is_authenticated,
+    _extract_client_ip,
+)
 
 
-def register_dls_tools(mcp: FastMCP, client: CleverTechClient, config: dict) -> None:
+def register_dls_tools(
+    mcp: FastMCP, client: CleverTechClient, config: dict, rate_limiter: LocalRateLimiter
+) -> None:
     """Register DLS conversion tools on the FastMCP server."""
 
     @mcp.tool(
@@ -27,6 +36,7 @@ def register_dls_tools(mcp: FastMCP, client: CleverTechClient, config: dict) -> 
         lon: Optional[float] = None,
         dls_string: Optional[str] = None,
         province: Optional[str] = None,
+        ctx: Context = None,
     ) -> str:
         """Convert a single coordinate between GPS and DLS.
 
@@ -37,20 +47,31 @@ def register_dls_tools(mcp: FastMCP, client: CleverTechClient, config: dict) -> 
             dls_string: DLS grid reference (required for dls_to_gps).
             province: Province code AB/SK/MB (optional, auto-detected).
         """
+        # Resolve user API key and rate limit anonymous users
+        user_key = _get_user_api_key(ctx)
+        upstream_key = get_upstream_key(user_key, config.get("api_key"))
+        if not is_authenticated(user_key):
+            source_ip = _extract_client_ip(ctx)
+            rate_limiter.check_or_raise(source_ip)
+
         if direction == "gps_to_dls":
             if lat is None or lon is None:
                 return "Error: lat and lon are required for gps_to_dls direction."
             payload: dict = {"lat": lat, "lon": lon}
             if province:
                 payload["province"] = province
-            data = await client.post("/api/v1/convert/gps-to-dls", json=payload)
+            data = await client.post(
+                "/api/v1/convert/gps-to-dls", json=payload, api_key=upstream_key
+            )
         else:
             if not dls_string:
                 return "Error: dls_string is required for dls_to_gps direction."
             payload = {"dls_string": dls_string}
             if province:
                 payload["province"] = province
-            data = await client.post("/api/v1/convert/dls-to-gps", json=payload)
+            data = await client.post(
+                "/api/v1/convert/dls-to-gps", json=payload, api_key=upstream_key
+            )
 
         lines: list[str] = []
         if data.get("dls"):
@@ -79,6 +100,7 @@ def register_dls_tools(mcp: FastMCP, client: CleverTechClient, config: dict) -> 
         direction: str,
         items: list[dict],
         province: Optional[str] = None,
+        ctx: Context = None,
     ) -> str:
         """Batch convert coordinates.
 
@@ -89,6 +111,13 @@ def register_dls_tools(mcp: FastMCP, client: CleverTechClient, config: dict) -> 
                    dls_to_gps: [{"dls_string": "NW-16-24-1-W5"}, ...]
             province: Province code (optional).
         """
+        # Resolve user API key and rate limit anonymous users
+        user_key = _get_user_api_key(ctx)
+        upstream_key = get_upstream_key(user_key, config.get("api_key"))
+        if not is_authenticated(user_key):
+            source_ip = _extract_client_ip(ctx)
+            rate_limiter.check_or_raise(source_ip)
+
         if not items:
             return "Error: items list is empty."
         if len(items) > 100:
@@ -98,7 +127,9 @@ def register_dls_tools(mcp: FastMCP, client: CleverTechClient, config: dict) -> 
         if province:
             payload["province"] = province
 
-        data = await client.post("/api/v1/convert/batch", json=payload)
+        data = await client.post(
+            "/api/v1/convert/batch", json=payload, api_key=upstream_key
+        )
 
         results = data.get("results", [])
         lines: list[str] = [f"Batch result: {data.get('count', 0)} conversions"]

@@ -138,7 +138,7 @@ class TestPropertyReport:
         result = await tool(city="calgary", roll_number="1234567")
 
         mock_client.get.assert_called_once_with(
-            "/api/calgary/property/report/1234567"
+            "/api/calgary/property/report/1234567", api_key=None
         )
 
         # Header
@@ -203,7 +203,7 @@ class TestPropertyByRoll:
         result = await tool(city="calgary", roll_number="1234567")
 
         mock_client.get.assert_called_once_with(
-            "/api/calgary/property/by-roll/1234567"
+            "/api/calgary/property/by-roll/1234567", api_key=None
         )
         # Result is JSON string
         parsed = json.loads(result)

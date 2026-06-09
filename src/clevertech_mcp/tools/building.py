@@ -1,10 +1,12 @@
 """Building permit MCP tools."""
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Context
 from clevertech_mcp.client import CleverTechClient
+from clevertech_mcp.rate_limit import LocalRateLimiter
+from clevertech_mcp.auth import _get_user_api_key, get_upstream_key, is_authenticated, _extract_client_ip
 
 
-def register_building_tools(mcp: FastMCP, client: CleverTechClient, config: dict):
+def register_building_tools(mcp: FastMCP, client: CleverTechClient, config: dict, rate_limiter: LocalRateLimiter):
     """Register building permit tools."""
 
     @mcp.tool(
@@ -16,6 +18,7 @@ def register_building_tools(mcp: FastMCP, client: CleverTechClient, config: dict
         q: str,
         permit_type: str = None,
         limit: int = 20,
+        ctx: Context = None,
     ) -> str:
         """Search building permits.
 
@@ -25,11 +28,18 @@ def register_building_tools(mcp: FastMCP, client: CleverTechClient, config: dict
             permit_type: Filter by permit type (e.g., 'Building', 'Demolition', 'Electrical')
             limit: Max results (1-200, default 20)
         """
+        # Resolve user API key and rate limit anonymous users
+        user_key = _get_user_api_key(ctx)
+        upstream_key = get_upstream_key(user_key, config.get("api_key"))
+        if not is_authenticated(user_key):
+            source_ip = _extract_client_ip(ctx)
+            rate_limiter.check_or_raise(source_ip)
+
         params = {"q": q, "limit": min(limit, 200)}
         if permit_type:
             params["permit_type"] = permit_type
 
-        data = await client.get(f"/api/{city}/building/search", params=params)
+        data = await client.get(f"/api/{city}/building/search", params=params, api_key=upstream_key)
 
         results = data.get("results", [])
         total = data.get("total", 0)
@@ -61,6 +71,7 @@ def register_building_tools(mcp: FastMCP, client: CleverTechClient, config: dict
     async def building_permit_recent(
         city: str,
         limit: int = 20,
+        ctx: Context = None,
     ) -> str:
         """Get recently issued permits.
 
@@ -68,9 +79,17 @@ def register_building_tools(mcp: FastMCP, client: CleverTechClient, config: dict
             city: City slug
             limit: Max results (1-100, default 20)
         """
+        # Resolve user API key and rate limit anonymous users
+        user_key = _get_user_api_key(ctx)
+        upstream_key = get_upstream_key(user_key, config.get("api_key"))
+        if not is_authenticated(user_key):
+            source_ip = _extract_client_ip(ctx)
+            rate_limiter.check_or_raise(source_ip)
+
         data = await client.get(
             f"/api/{city}/building/recent",
             params={"limit": min(limit, 100)},
+            api_key=upstream_key,
         )
 
         results = data.get("results", [])

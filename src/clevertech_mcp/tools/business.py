@@ -1,10 +1,12 @@
 """Business registry MCP tools."""
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Context
 from clevertech_mcp.client import CleverTechClient
+from clevertech_mcp.rate_limit import LocalRateLimiter
+from clevertech_mcp.auth import _get_user_api_key, get_upstream_key, is_authenticated, _extract_client_ip
 
 
-def register_business_tools(mcp: FastMCP, client: CleverTechClient, config: dict):
+def register_business_tools(mcp: FastMCP, client: CleverTechClient, config: dict, rate_limiter: LocalRateLimiter):
     """Register business registry tools."""
 
     @mcp.tool(
@@ -17,6 +19,7 @@ def register_business_tools(mcp: FastMCP, client: CleverTechClient, config: dict
         city: str = None,
         status: str = None,
         limit: int = 25,
+        ctx: Context = None,
     ) -> str:
         """Search the business registry.
 
@@ -27,6 +30,13 @@ def register_business_tools(mcp: FastMCP, client: CleverTechClient, config: dict
             status: Corporation status (Active, Dissolved, etc.)
             limit: Max results (1-100, default 25)
         """
+        # Resolve user API key and rate limit anonymous users
+        user_key = _get_user_api_key(ctx)
+        upstream_key = get_upstream_key(user_key, config.get("api_key"))
+        if not is_authenticated(user_key):
+            source_ip = _extract_client_ip(ctx)
+            rate_limiter.check_or_raise(source_ip)
+
         params = {"q": q, "limit": min(limit, 100)}
         if province:
             params["province"] = province
@@ -35,7 +45,7 @@ def register_business_tools(mcp: FastMCP, client: CleverTechClient, config: dict
         if status:
             params["status"] = status
 
-        data = await client.get("/api/registry/search", params=params)
+        data = await client.get("/api/registry/search", params=params, api_key=upstream_key)
 
         results = data.get("results", [])
         total = data.get("total", len(results))

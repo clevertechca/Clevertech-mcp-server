@@ -85,6 +85,18 @@ class LocalRateLimiter:
             self._storage.setdefault(source_ip, []).append((now, cost))
             return True, ""
 
+    def check_or_raise(self, source_ip: str, cost: int = 1) -> None:
+        """Convenience wrapper — raises ``ValueError`` when the request is denied.
+
+        Keeps tool handler code clean::
+
+            rate_limiter.check_or_raise(source_ip)
+            # … proceed with request …
+        """
+        allowed, msg = self.check(source_ip, cost=cost)
+        if not allowed:
+            raise ValueError(msg)
+
     def remaining(self, source_ip: str) -> dict[str, int]:
         """Return a summary of remaining capacity for *source_ip*."""
         now = time.time()

@@ -39,7 +39,13 @@ class MockMCP:
 # Shared helper — wire up a tool module and return the captured function
 # ---------------------------------------------------------------------------
 
-def register_and_get_tool(register_fn, mock_client, mock_config, tool_name: str):
+def register_and_get_tool(
+    register_fn,
+    mock_client,
+    mock_config,
+    tool_name: str,
+    mock_rate_limiter=None,
+):
     """Call *register_fn* with a MockMCP, capture tool functions, and return
     the one named *tool_name*.
 
@@ -49,7 +55,9 @@ def register_and_get_tool(register_fn, mock_client, mock_config, tool_name: str)
         result = await tool(direction="gps_to_dls", lat=51.0, lon=-114.0)
     """
     mcp = MockMCP()
-    register_fn(mcp, mock_client, mock_config)
+    if mock_rate_limiter is None:
+        mock_rate_limiter = MagicMock()
+    register_fn(mcp, mock_client, mock_config, mock_rate_limiter)
     fn = mcp.tools.get(tool_name)
     if fn is None:
         available = list(mcp.tools.keys())

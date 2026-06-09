@@ -37,12 +37,13 @@ class TestCreateServer:
                 api_key="test-key-123",
             )
 
-            # Verify tools were registered
-            mock_register.assert_called_once_with(
-                mcp,
-                mock_client_cls.return_value,  # the client instance
-                config,
-            )
+            # Verify tools were registered (with rate_limiter as 4th arg)
+            mock_register.assert_called_once()
+            call_args = mock_register.call_args
+            assert call_args[0][0] is mcp
+            assert call_args[0][1] is mock_client_cls.return_value
+            assert call_args[0][2] == config
+            assert hasattr(call_args[0][3], "check_or_raise")  # rate_limiter
 
             # Verify we got back a FastMCP instance
             # (the actual class, not a mock, since we only mock its deps)

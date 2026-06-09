@@ -5,13 +5,16 @@ Provides assessment data, building permits, zoning, and DLS coordinates.
 """
 
 import json
+from typing import Optional
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Context
 from clevertech_mcp.client import CleverTechClient
+from clevertech_mcp.rate_limit import LocalRateLimiter
+from clevertech_mcp.auth import _get_user_api_key, get_upstream_key, is_authenticated, _extract_client_ip
 
 
 def register_property_tools(
-    mcp: FastMCP, client: CleverTechClient, config: dict
+    mcp: FastMCP, client: CleverTechClient, config: dict, rate_limiter: LocalRateLimiter
 ) -> None:
     """Register property search, by-roll, and report tools."""
 
@@ -28,6 +31,7 @@ def register_property_tools(
         address: str,
         limit: int = 10,
         offset: int = 0,
+        ctx: Context = None,
     ) -> str:
         """Search for properties by address.
 
@@ -38,6 +42,13 @@ def register_property_tools(
             limit: Max results (1-200, default 10).
             offset: Pagination offset.
         """
+        # Resolve user API key and rate limit anonymous users
+        user_key = _get_user_api_key(ctx)
+        upstream_key = get_upstream_key(user_key, config.get("api_key"))
+        if not is_authenticated(user_key):
+            source_ip = _extract_client_ip(ctx)
+            rate_limiter.check_or_raise(source_ip)
+
         data = await client.get(
             f"/api/{city}/property/search",
             params={
@@ -45,6 +56,7 @@ def register_property_tools(
                 "limit": min(limit, 200),
                 "offset": offset,
             },
+            api_key=upstream_key,
         )
 
         results = data.get("results", [])
@@ -82,14 +94,21 @@ def register_property_tools(
             "in a single response."
         ),
     )
-    async def property_report(city: str, roll_number: str) -> str:
+    async def property_report(city: str, roll_number: str, ctx: Context = None) -> str:
         """Get a consolidated property report.
 
         Args:
             city: City slug.
             roll_number: Property roll number.
         """
-        data = await client.get(f"/api/{city}/property/report/{roll_number}")
+        # Resolve user API key and rate limit anonymous users
+        user_key = _get_user_api_key(ctx)
+        upstream_key = get_upstream_key(user_key, config.get("api_key"))
+        if not is_authenticated(user_key):
+            source_ip = _extract_client_ip(ctx)
+            rate_limiter.check_or_raise(source_ip)
+
+        data = await client.get(f"/api/{city}/property/report/{roll_number}", api_key=upstream_key)
 
         message = data.get("_message", "")
         lines: list[str] = [
@@ -156,12 +175,19 @@ def register_property_tools(
             "Faster than search when you already know the roll number."
         ),
     )
-    async def property_by_roll(city: str, roll_number: str) -> str:
+    async def property_by_roll(city: str, roll_number: str, ctx: Context = None) -> str:
         """Get a property by its roll number.
 
         Args:
             city: City slug.
             roll_number: Property roll number.
         """
-        data = await client.get(f"/api/{city}/property/by-roll/{roll_number}")
+        # Resolve user API key and rate limit anonymous users
+        user_key = _get_user_api_key(ctx)
+        upstream_key = get_upstream_key(user_key, config.get("api_key"))
+        if not is_authenticated(user_key):
+            source_ip = _extract_client_ip(ctx)
+            rate_limiter.check_or_raise(source_ip)
+
+        data = await client.get(f"/api/{city}/property/by-roll/{roll_number}", api_key=upstream_key)
         return json.dumps(data, indent=2, default=str)
