@@ -148,7 +148,7 @@ npx @clevertech/mcp-server
 - **11 MCP tools** covering property, permits, zoning, business registry, and DLS
 - **Batch DLS conversion** — convert up to 100 coordinates in one call
 - **Consolidated property reports** — assessment + permits + zoning + DLS in a single response
-- **stdio + SSE transport** — works with Claude Code, Cursor, Cline, GitHub Copilot, and any MCP-compatible agent
+- **stdio transport** — works with Claude Code, Cursor, Cline, GitHub Copilot, and any MCP-compatible agent
 - **Clean text output** — formatted for easy LLM parsing and reformatting
 - **20 Canadian cities** — urban and rural coverage with regular additions
 - **MIT licensed** — use it anywhere, no restrictions
@@ -159,7 +159,7 @@ npx @clevertech/mcp-server
 
 ```bash
 # Clone and set up
-git clone https://github.com/anteriorclever/clevertech-mcp-server.git
+git clone https://github.com/harmssam/clevertech-mcp-server.git
 cd clevertech-mcp-server
 uv sync
 

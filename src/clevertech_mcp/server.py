@@ -357,78 +357,70 @@ LANDING_PAGE_HTML = """\
   <section>
     <h2>Quick Start</h2>
 
-    <h3>SSE Endpoint (Remote, no install)</h3>
-    <div class="card">
-      <p>Connect any MCP-compatible client to the remote SSE endpoint:</p>
-      <pre>https://mcp.clevertech.ca/sse</pre>
-      <p style="color:#8ea4be;font-size:0.82rem;margin-top:0.4rem;">
-        Transport: SSE (Server-Sent Events). No local Python/Node required.
-      </p>
+    <div class="alert" style="background:#2d1f1f;border:1px solid #8b3a3a;color:#e0b0b0;padding:0.75rem 1rem;border-radius:6px;margin-bottom:1.5rem;font-size:0.85rem;">
+      ⚠️ <strong>Remote SSE endpoint decommissioned.</strong> The hosted SSE endpoint at
+      <code>mcp.clevertech.ca</code> has been shut down as of June 2026.
+      Use local stdio transport instead — it's faster, more reliable, and works
+      with every MCP client. No install required with <code>uvx</code> or <code>npx</code>.
     </div>
 
     <h3>Claude Desktop</h3>
     <div class="card">
-      <p>Add to your <code>claude_desktop_config.json</code>:</p>
+      <p>Add to your <code>~/.claude/claude_desktop_config.json</code>:</p>
       <pre>{
   "mcpServers": {
     "clevertech": {
-      "command": "npx",
-      "args": ["-y", "@clevertech/mcp-server"],
-      "env": {
-        "CLEVERTECH_API_KEY": "your-api-key-here"
-      }
+      "command": "uvx",
+      "args": ["clevertech-mcp-server"]
     }
   }
 }</pre>
+      <p style="color:#8ea4be;font-size:0.82rem;margin-top:0.4rem;">
+        With API key: add <code>"CLEVERTECH_API_KEY": "your-key"</code> to <code>env</code> field.
+      </p>
     </div>
 
-    <h3>SSE Mode (Remote Client)</h3>
+    <h3>Cursor / Cline</h3>
     <div class="card">
-      <p>Configure as a remote SSE server (no local process):</p>
+      <p>Add to your MCP configuration:</p>
       <pre>{
   "mcpServers": {
     "clevertech": {
-      "type": "sse",
-      "url": "https://mcp.clevertech.ca/sse"
+      "command": "uvx",
+      "args": ["clevertech-mcp-server"]
     }
   }
 }</pre>
-      <div class="alert">
-        ⚠️ Rates apply per connection IP. Authenticated users get higher limits —
-        pass <code>Authorization: Bearer &lt;your-api-key&gt;</code> on the
-        initial SSE connection.
-      </div>
     </div>
 
     <h3>VS Code / GitHub Copilot</h3>
     <div class="card">
-      <p>Configure via <code>.vscode/mcp.json</code> or VS Code MCP settings:</p>
+      <p>Configure via <code>.vscode/mcp.json</code>:</p>
       <pre>{
   "servers": {
     "clevertech": {
-      "type": "sse",
-      "url": "https://mcp.clevertech.ca/sse"
+      "command": "uvx",
+      "args": ["clevertech-mcp-server"]
     }
   }
 }</pre>
     </div>
 
-    <h3>npm (stdio)</h3>
+    <h3>Direct CLI (npm / uv)</h3>
     <div class="card">
-      <p>When you need a local stdio process:</p>
-      <pre>npx @clevertech/mcp-server
+      <pre># npm (Node.js)
+npx @clevertech/mcp-server
 
-# Or install globally:
-npm install -g @clevertech/mcp-server
-clevertech-mcp</pre>
+# uv / PyPI
+uvx clevertech-mcp-server</pre>
     </div>
 
     <h3>From Source</h3>
     <div class="card">
-      <pre>git clone https://github.com/anterisbot/clevertech-mcp.git
-cd clevertech-mcp
-pip install -e .
-clevertech-mcp</pre>
+      <pre>git clone https://github.com/harmssam/clevertech-mcp-server.git
+cd clevertech-mcp-server
+uv sync
+uv run clevertech-mcp-server</pre>
     </div>
   </section>
 
@@ -442,14 +434,15 @@ clevertech-mcp</pre>
       </p>
       <p style="margin-top:0.6rem;">
         <span class="badge badge-green">Unlimited</span>
-        With a CleverTech API key — pass via <code>Authorization: Bearer</code>
-        header on SSE connection or <code>CLEVERTECH_API_KEY</code> env var
-        in stdio mode.
+        With a CleverTech API key — set the
+        <code>CLEVERTECH_API_KEY</code> environment variable:
       </p>
+      <pre style="margin-top:0.4rem;">export CLEVERTECH_API_KEY=your_key_here
+uvx clevertech-mcp-server</pre>
       <p style="margin-top:0.75rem;font-size:0.85rem;">
         🔑 Get your API key at
         <a href="https://clevertech.ca" style="color:#0dc5b8;">clevertech.ca</a>
-        (sign up for free). Authenticated users also get burst rate limits of
+        (sign up for free). Authenticated users get burst rate limits of
         60 requests/minute vs 10/minute for anonymous.
       </p>
     </div>
@@ -491,8 +484,8 @@ clevertech-mcp</pre>
   <section>
     <h2>Security &amp; Privacy</h2>
     <div class="card" style="font-size:0.85rem;">
-      <p>🔒 <strong>Transport:</strong> All endpoints use HTTPS-only. SSE connections are encrypted end-to-end.</p>
-      <p style="margin-top:0.4rem;">🔑 <strong>Authentication:</strong> API keys are transmitted via <code>Authorization: Bearer</code> header only. Keys are never exposed in URLs, logs, or error messages.</p>
+      <p>🔒 <strong>Transport:</strong> All connections to the CleverTech API use HTTPS. The MCP server runs locally on your machine via stdio.</p>
+      <p style="margin-top:0.4rem;">🔑 <strong>Authentication:</strong> API keys are set via <code>CLEVERTECH_API_KEY</code> environment variable. Keys are never exposed in URLs, logs, or error messages.</p>
       <p style="margin-top:0.4rem;">🌐 <strong>Data Sources:</strong> All data comes from official Canadian government open-data portals. No proprietary or user-generated data is stored server-side.</p>
       <p style="margin-top:0.4rem;">📊 <strong>Privacy:</strong> This server accesses only publicly available government datasets. No personal information is collected. Rate limiting uses anonymous source-IP tracking which is not persisted to disk.</p>
     </div>
@@ -502,11 +495,11 @@ clevertech-mcp</pre>
   <section>
     <h2>Links</h2>
     <div class="links">
-      <a href="/health">Health Check</a>
-      <a href="/sse">SSE Endpoint</a>
       <a href="https://clevertech.ca">clevertech.ca</a>
-      <a href="https://github.com/anterisbot/clevertech-mcp">GitHub (Python)</a>
+      <a href="https://github.com/harmssam/clevertech-mcp-server">GitHub</a>
       <a href="https://clevertech.ca/docs">API Docs</a>
+      <a href="https://pypi.org/project/clevertech-mcp-server/">PyPI</a>
+      <a href="https://www.npmjs.com/package/@clevertech/mcp-server">npm</a>
     </div>
   </section>
 
