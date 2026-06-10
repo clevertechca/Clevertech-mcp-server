@@ -23,7 +23,8 @@ def register_property_tools(
         description=(
             "Search for properties by address across 13+ Canadian cities. "
             "Returns assessment data including value, lot size, year built, "
-            "and DLS coordinates."
+            "and DLS coordinates. Supports sorting by assessed_value, address, "
+            "year_built, community, and value range filtering."
         ),
     )
     async def property_search(
@@ -31,6 +32,10 @@ def register_property_tools(
         address: str,
         limit: int = 10,
         offset: int = 0,
+        sort_by: str = None,
+        order: str = "asc",
+        min_value: float = None,
+        max_value: float = None,
         ctx: Context = None,
     ) -> str:
         """Search for properties by address.
@@ -41,6 +46,10 @@ def register_property_tools(
             address: Street address to search (partial matches supported).
             limit: Max results (1-200, default 10).
             offset: Pagination offset.
+            sort_by: Sort column: assessed_value, address, year_built, community, lot_size_sqft.
+            order: Sort order: asc or desc.
+            min_value: Only return properties with assessed_value >= this.
+            max_value: Only return properties with assessed_value <= this.
         """
         # Resolve user API key and rate limit anonymous users
         user_key = _get_user_api_key(ctx)
@@ -49,13 +58,23 @@ def register_property_tools(
             source_ip = _extract_client_ip(ctx)
             rate_limiter.check_or_raise(source_ip)
 
+        params = {
+            "address": address,
+            "limit": min(limit, 200),
+            "offset": offset,
+        }
+        if sort_by:
+            params["sort_by"] = sort_by
+        if order:
+            params["order"] = order
+        if min_value is not None:
+            params["min_value"] = min_value
+        if max_value is not None:
+            params["max_value"] = max_value
+
         data = await client.get(
             f"/api/{city}/property/search",
-            params={
-                "address": address,
-                "limit": min(limit, 200),
-                "offset": offset,
-            },
+            params=params,
             api_key=upstream_key,
         )
 
@@ -191,3 +210,78 @@ def register_property_tools(
 
         data = await client.get(f"/api/{city}/property/by-roll/{roll_number}", api_key=upstream_key)
         return json.dumps(data, indent=2, default=str)
+
+    @mcp.tool(
+        name="property_top",
+        description=(
+            "Get the top-N properties in a city sorted by assessed value, "
+            "year built, or lot size. Perfect for finding the most expensive, "
+            "oldest, or largest properties. Returns full assessment details "
+            "for each result."
+        ),
+    )
+    async def property_top(
+        city: str,
+        n: int = 10,
+        sort_by: str = "assessed_value",
+        order: str = "desc",
+        min_value: float = None,
+        max_value: float = None,
+        ctx: Context = None,
+    ) -> str:
+        """Get top-N properties sorted by a numeric column.
+
+        Args:
+            city: City slug.
+            n: Number of results (1-100, default 10).
+            sort_by: Column to sort by: assessed_value, year_built, lot_size_sqft.
+            order: Sort order: asc or desc (default desc for top-N).
+            min_value: Optional minimum assessed value filter.
+            max_value: Optional maximum assessed value filter.
+        """
+        user_key = _get_user_api_key(ctx)
+        upstream_key = get_upstream_key(user_key, config.get("api_key"))
+        if not is_authenticated(user_key):
+            source_ip = _extract_client_ip(ctx)
+            rate_limiter.check_or_raise(source_ip)
+
+        params = {
+            "n": min(n, 100),
+            "sort_by": sort_by,
+            "order": order,
+        }
+        if min_value is not None:
+            params["min_value"] = min_value
+        if max_value is not None:
+            params["max_value"] = max_value
+
+        data = await client.get(
+            f"/api/{city}/property/top",
+            params=params,
+            api_key=upstream_key,
+        )
+
+        results = data.get("results", [])
+        lines: list[str] = [
+            f"Top {len(results)} properties in {city.title()} "
+            f"(sorted by {sort_by} {order}):"
+        ]
+
+        for i, r in enumerate(results, 1):
+            lines.extend([
+                "",
+                f"## {i}. {r.get('address', 'N/A')}",
+                f"- Roll: {r.get('roll_number', 'N/A')}",
+            ])
+            if r.get("assessed_value") is not None:
+                lines.append(f"- Assessed Value: ${r['assessed_value']:,.0f}")
+            if r.get("year_built"):
+                lines.append(f"- Year Built: {r['year_built']}")
+            if r.get("lot_size_sqm"):
+                lines.append(f"- Lot Size: {r['lot_size_sqm']:,} m²")
+            if r.get("property_type"):
+                lines.append(f"- Type: {r['property_type']}")
+            if r.get("dls"):
+                lines.append(f"- DLS: {r['dls']}")
+
+        return "\n".join(lines)

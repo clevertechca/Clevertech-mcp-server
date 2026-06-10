@@ -37,6 +37,7 @@ def register_business_tools(mcp: FastMCP, client: CleverTechClient, config: dict
             source_ip = _extract_client_ip(ctx)
             rate_limiter.check_or_raise(source_ip)
 
+        # Use advanced endpoint for full parameter support
         params = {"q": q, "limit": min(limit, 100)}
         if province:
             params["province"] = province
@@ -56,14 +57,26 @@ def register_business_tools(mcp: FastMCP, client: CleverTechClient, config: dict
             lines.append(f"\n{message}")
 
         for r in results:
+            # Upstream API field names: name, corporation_id, status_en,
+            # province_en, city, incorporation_date, act_en, corporation_type_en
             lines.extend([
                 "",
                 "---",
-                f"Name: {r.get('corporation_name', r.get('name', 'N/A'))}",
-                f"Number: {r.get('corporation_number', r.get('number', 'N/A'))}",
-                f"Status: {r.get('status', 'N/A')}",
-                f"Jurisdiction: {r.get('jurisdiction', r.get('province', 'N/A'))}",
+                f"Name: {r.get('name', r.get('corporation_name', 'N/A'))}",
+                f"Number: {r.get('corporation_id', r.get('corporation_number', 'N/A'))}",
+                f"Status: {r.get('status_en', r.get('status', 'N/A'))}",
+                f"Province: {r.get('province_en', r.get('province', 'N/A'))}",
             ])
+            if r.get('city'):
+                lines.append(f"City: {r['city']}")
+            if r.get('incorporation_date'):
+                lines.append(f"Incorporated: {r['incorporation_date']}")
+            if r.get('act_en'):
+                lines.append(f"Act: {r['act_en']}")
+            if r.get('corporation_type_en'):
+                lines.append(f"Type: {r['corporation_type_en']}")
+            if r.get('latest_filing_year'):
+                lines.append(f"Latest Filing: {r['latest_filing_year']}")
             if r.get('registered_address'):
                 lines.append(f"Address: {r['registered_address']}")
 

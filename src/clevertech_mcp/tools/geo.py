@@ -18,10 +18,18 @@ def register_geo_tools(
 
     @mcp.tool(
         name="reverse_geocode",
-        description="Convert GPS coordinates to a human-readable address, city, neighborhood, province, and DLS grid reference. Works across all Canadian cities in the CleverTech database.",
+        description=(
+            "Convert GPS coordinates to a human-readable address, city, "
+            "neighborhood, province, DLS grid reference, and — when available — "
+            "the nearest property's roll number and assessed value. Works across "
+            "all Canadian cities in the CleverTech database."
+        ),
     )
     async def reverse_geocode(lat: float, lon: float, ctx: Context = None) -> str:
-        """Reverse geocode GPS coordinates.
+        """Reverse geocode GPS coordinates with optional property lookup.
+
+        If the geocoded address falls within a known property parcel,
+        the roll number and assessed value are included automatically.
 
         Args:
             lat: Latitude
@@ -54,6 +62,34 @@ def register_geo_tools(
             lines.append(f"GPS: {data['lat']}, {data['lon']}")
         if data.get("confidence"):
             lines.append(f"Confidence: {data['confidence']}")
+
+        # If we have a city and address, try to look up the property
+        city_name = data.get("city", "").strip()
+        geocoded_address = data.get("address", "").strip()
+        city_slug = data.get("city_slug", city_name.lower().replace(" ", "-"))
+
+        if city_slug and geocoded_address:
+            try:
+                prop_data = await client.get(
+                    f"/api/{city_slug}/property/search",
+                    params={"address": geocoded_address, "limit": 1},
+                    api_key=upstream_key,
+                )
+                props = prop_data.get("results", [])
+                if props:
+                    prop = props[0]
+                    lines.append("")
+                    lines.append("**Nearest Property:**")
+                    lines.append(f"- Roll: {prop.get('roll_number', 'N/A')}")
+                    if prop.get("assessed_value") is not None:
+                        lines.append(
+                            f"- Assessed Value: ${prop['assessed_value']:,.0f}"
+                        )
+                    if prop.get("property_type"):
+                        lines.append(f"- Type: {prop['property_type']}")
+            except Exception:
+                pass  # Property lookup is best-effort
+
         if data.get("_message"):
             lines.append(f"\n{data['_message']}")
 
