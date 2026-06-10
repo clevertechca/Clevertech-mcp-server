@@ -133,6 +133,14 @@ No signup required to start. Free tier gives you 50 queries/day out of the box.
 npx @clevertech/mcp-server --api-key YOUR_KEY
 ```
 
+Or log in interactively via device authorization (no key needed):
+
+```bash
+npx @clevertech/mcp-server --login
+```
+
+This opens a browser for you to sign in with your Google account and automatically saves the API key to `~/.clevertech/config.json`.
+
 Or via environment variable:
 
 ```bash
@@ -165,6 +173,9 @@ uv sync
 
 # Run locally (stdio transport)
 uv run clevertech-mcp-server --transport stdio
+
+# Run with --login to authenticate and save your API key
+uv run clevertech-mcp-server --login
 
 # Run with SSE transport (for HTTP-based agents)
 uv run clevertech-mcp-server --transport sse --port 8000

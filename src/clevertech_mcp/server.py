@@ -434,10 +434,20 @@ uv run clevertech-mcp-server</pre>
       </p>
       <p style="margin-top:0.6rem;">
         <span class="badge badge-green">Unlimited</span>
-        With a CleverTech API key — set the
-        <code>CLEVERTECH_API_KEY</code> environment variable:
+        Two ways to authenticate with a CleverTech API key:
       </p>
-      <pre style="margin-top:0.4rem;">export CLEVERTECH_API_KEY=your_key_here
+      <p style="margin-top:0.5rem;font-size:0.85rem;">
+        <strong>Option 1 — Device login (no terminal password):</strong>
+      </p>
+      <pre style="margin-top:0.3rem;">npx @clevertech/mcp-server --login</pre>
+      <p style="font-size:0.82rem;color:#8ea4be;margin-top:0.2rem;">
+        Opens a browser → sign in with Google → API key saved automatically to
+        <code>~/.clevertech/config.json</code> (RFC 8628 device flow).
+      </p>
+      <p style="margin-top:0.6rem;font-size:0.85rem;">
+        <strong>Option 2 — Environment variable:</strong>
+      </p>
+      <pre style="margin-top:0.3rem;">export CLEVERTECH_API_KEY=your_key_here
 uvx clevertech-mcp-server</pre>
       <p style="margin-top:0.75rem;font-size:0.85rem;">
         🔑 Get your API key at
@@ -563,15 +573,40 @@ def main():
         default=None,
         help="CleverTech API key (overrides CLEVERTECH_API_KEY env var)",
     )
+    parser.add_argument(
+        "--login",
+        action="store_true",
+        default=False,
+        help="Authenticate via device authorization flow and save API key",
+    )
     args = parser.parse_args()
 
     config = load_config()
     config["host"] = args.host
     config["port"] = args.port
 
+    # Resolve API key priority: --api-key > CLEVERTECH_API_KEY > saved config
+    if not args.api_key:
+        api_key = os.getenv("CLEVERTECH_API_KEY")
+        if not api_key:
+            from clevertech_mcp.login import load_saved_api_key
+            api_key = load_saved_api_key()
+            if api_key:
+                os.environ["CLEVERTECH_API_KEY"] = api_key
+                config["api_key"] = api_key
+
     # --api-key flag overrides env var for stdio mode
     if args.api_key:
         config["api_key"] = args.api_key
+        os.environ["CLEVERTECH_API_KEY"] = args.api_key
+
+    # --login runs the device authorization flow, then starts the server
+    # (skipped if --api-key was already provided, which takes priority)
+    if args.login and not args.api_key:
+        from clevertech_mcp.login import device_login
+        api_key = device_login(config.get("api_url", "https://clevertech.ca"))
+        config["api_key"] = api_key
+        os.environ["CLEVERTECH_API_KEY"] = api_key
 
     mcp = create_server(config)
 
