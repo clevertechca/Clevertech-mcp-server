@@ -11,7 +11,7 @@ Usage in test files:
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 
 # ---------------------------------------------------------------------------
@@ -173,7 +173,7 @@ def sample_business():
         "corporation_name": "ACME CANADA INC.",
         "corporation_number": "123456-7",
         "status": "Active",
-        "jurisdiction": "AB",
+        "province": "AB",
         "registered_address": "100 Business Park, Calgary AB T2P 1A1",
     }
 

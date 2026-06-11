@@ -63,7 +63,7 @@ def register_business_tools(mcp: FastMCP, client: CleverTechClient, config: dict
                 "",
                 "---",
                 f"Name: {r.get('name', r.get('corporation_name', 'N/A'))}",
-                f"Number: {r.get('corporation_id', r.get('corporation_number', 'N/A'))}",
+                f"Number: {r.get('corporation_id', r.get('corporation_number', r.get('number', 'N/A')))}",
                 f"Status: {r.get('status_en', r.get('status', 'N/A'))}",
                 f"Province: {r.get('province_en', r.get('province', 'N/A'))}",
             ])

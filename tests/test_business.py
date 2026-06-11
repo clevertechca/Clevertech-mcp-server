@@ -51,7 +51,7 @@ class TestBusinessRegistrySearch:
         assert "Name: ACME CANADA INC." in result
         assert "Number: 123456-7" in result
         assert "Status: Active" in result
-        assert "Jurisdiction: AB" in result
+        assert "Province: AB" in result
         assert "Address: 100 Business Park" in result
 
     @pytest.mark.asyncio
@@ -119,7 +119,7 @@ class TestBusinessRegistrySearch:
         assert "Name: Beta Corp" in result
         assert "Number: 98765-4" in result
         assert "Status: Dissolved" in result
-        assert "Jurisdiction: ON" in result
+        assert "Province: ON" in result
 
     @pytest.mark.asyncio
     async def test_business_registry_search_missing_address(self, mock_client, mock_config):
@@ -128,7 +128,7 @@ class TestBusinessRegistrySearch:
             "corporation_name": "NoAddr Ltd.",
             "corporation_number": "00000-0",
             "status": "Active",
-            "jurisdiction": "MB",
+            "province": "MB",
             # no registered_address
         }
         mock_client.get = AsyncMock(return_value={"results": [no_addr], "total": 1})

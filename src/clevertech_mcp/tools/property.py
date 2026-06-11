@@ -5,7 +5,6 @@ Provides assessment data, building permits, zoning, and DLS coordinates.
 """
 
 import json
-from typing import Optional
 
 from mcp.server.fastmcp import FastMCP, Context
 from clevertech_mcp.client import CleverTechClient

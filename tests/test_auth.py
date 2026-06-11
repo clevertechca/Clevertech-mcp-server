@@ -285,7 +285,6 @@ class TestAuthClientIntegration:
     @pytest.mark.asyncio
     async def test_anonymous_rate_limit_enforced(self):
         """Anonymous user hitting rate limit gets ValueError."""
-        from clevertech_mcp.auth import _user_api_key_var as var
         from clevertech_mcp.rate_limit import LocalRateLimiter
         from unittest.mock import AsyncMock
 

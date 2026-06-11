@@ -8,7 +8,6 @@ Tracks requests per source IP using a sliding-window approach:
 
 import time
 import threading
-from typing import Optional
 
 
 class LocalRateLimiter:

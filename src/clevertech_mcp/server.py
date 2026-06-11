@@ -3,10 +3,7 @@ CleverTech MCP Server — main entry point.
 """
 
 import os
-import sys
 import argparse
-import json
-import contextvars
 from mcp.server.fastmcp import FastMCP
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import HTMLResponse, JSONResponse

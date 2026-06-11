@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock
 
 from clevertech_mcp.tools.dls import register_dls_tools
 
-from tests.conftest import MockMCP, register_and_get_tool
+from tests.conftest import register_and_get_tool
 
 
 # ---------------------------------------------------------------------------

@@ -7,17 +7,14 @@ mocked httpx.Client so no real network calls are made.
 
 import json
 import os
-import sys
 import tempfile
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 
 from clevertech_mcp.login import (
     _save_api_key,
     load_saved_api_key,
     device_login,
-    CONFIG_DIR,
-    CONFIG_FILE,
 )
 
 

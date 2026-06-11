@@ -88,11 +88,11 @@ def device_login(base_url: str = "https://clevertech.ca") -> str:
     print("  CleverTech MCP Server — Device Authorization")
     print("=" * 60)
     print(f"\n  Your user code: {user_code}")
-    print(f"\n  Open this URL in your browser:")
+    print("\n  Open this URL in your browser:")
     print(f"  {verification_uri}")
-    print(f"\n  Sign in with your Google account and authorize the request.")
+    print("\n  Sign in with your Google account and authorize the request.")
     print(f"  This code expires in {expires_in // 60} minutes.")
-    print(f"\n  Waiting for authorization", end="", flush=True)
+    print("\n  Waiting for authorization", end="", flush=True)
 
     # Step 2: Poll for token
     deadline = time.time() + expires_in
@@ -113,10 +113,10 @@ def device_login(base_url: str = "https://clevertech.ca") -> str:
                         if api_key:
                             print("\n")
                             _save_api_key(api_key)
-                            print(f"  ✅ Authorization successful!")
+                            print("  ✅ Authorization successful!")
                             print(f"  API key saved to {CONFIG_FILE}")
                             print(f"  Your key: {api_key[:8]}...{api_key[-4:]}")
-                            print(f"\n  The MCP server will use this key automatically.")
+                            print("\n  The MCP server will use this key automatically.")
                             print("=" * 60 + "\n")
                             return api_key
                     elif resp.status_code == 400:

@@ -5,7 +5,7 @@ the ``main`` entry point can be invoked without crashing.
 """
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 # ---------------------------------------------------------------------------
 # create_server

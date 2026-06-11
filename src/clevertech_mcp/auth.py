@@ -15,7 +15,7 @@ import contextvars
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from starlette.requests import Request
+    pass
 
 # ContextVar bridge for SSE transport.
 # Set by Starlette middleware on the initial SSE connection request.
