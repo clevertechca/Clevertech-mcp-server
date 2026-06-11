@@ -1,15 +1,12 @@
 {
   "name": "@clevertech/mcp-server",
-  "version": "0.1.1",
-  "description": "MCP Server for CleverTech Canadian government data APIs — property assessments, building permits, zoning, DLS grid conversion, business registry.",
-  "bin": {
-    "clevertech-mcp-server": "./bin/run.js"
-  },
-  "files": ["bin/", "README.md"],
+  "version": "0.2.0",
+  "private": true,
+  "description": "MCP Server for CleverTech Canadian government data APIs — property assessments, building permits, zoning, DLS grid conversion, business registry. Use uvx clevertech-mcp-server — this npm package is a wrapper.",
   "keywords": ["mcp", "clevertech", "canada", "property", "assessment", "dls", "building-permits", "zoning", "real-estate", "gis"],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/anteriorclever/clevertech-mcp-server.git"
+    "url": "git+https://github.com/clevertechca/Clevertech-mcp-server.git"
   },
   "license": "MIT"
 }

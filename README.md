@@ -3,11 +3,10 @@
 **Canadian government data for AI agents.** Property assessments, building permits, zoning, business registry, DLS grid conversion — 50 free queries/day, no signup.
 
 ```bash
-npx @clevertech/mcp-server
+uvx clevertech-mcp-server
 ```
 
 [![PyPI version](https://badge.fury.io/py/clevertech-mcp-server.svg)](https://pypi.org/project/clevertech-mcp-server/)
-[![npm version](https://badge.fury.io/npm/%40clevertech%2Fmcp-server.svg)](https://www.npmjs.com/package/@clevertech/mcp-server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -22,8 +21,8 @@ Add to your `~/.claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "clevertech": {
-      "command": "npx",
-      "args": ["-y", "@clevertech/mcp-server"]
+      "command": "uvx",
+      "args": ["clevertech-mcp-server"]
     }
   }
 }
@@ -50,8 +49,8 @@ Add to your MCP configuration:
 {
   "mcpServers": {
     "clevertech": {
-      "command": "npx",
-      "args": ["-y", "@clevertech/mcp-server"]
+      "command": "uvx",
+      "args": ["clevertech-mcp-server"]
     }
   }
 }
@@ -60,16 +59,12 @@ Add to your MCP configuration:
 ### Direct CLI
 
 ```bash
-# npm (Node.js)
-npx @clevertech/mcp-server
-
-# uv / PyPI
 uvx clevertech-mcp-server
 ```
 
 ---
 
-## Available Tools (11)
+## Available Tools (12)
 
 | Tool | Description |
 |------|-------------|
@@ -130,22 +125,22 @@ No signup required to start. Free tier gives you 50 queries/day out of the box.
 ### Using an API Key
 
 ```bash
-npx @clevertech/mcp-server --api-key YOUR_KEY
+uvx clevertech-mcp-server --api-key YOUR_KEY
 ```
 
 Or log in interactively via device authorization (no key needed):
 
 ```bash
-npx @clevertech/mcp-server --login
+uvx clevertech-mcp-server --login
 ```
 
-This opens a browser for you to sign in with your Google account and automatically saves the API key to `~/.clevertech/config.json`.
+This prints a URL in your terminal for you to open and sign in with your Google account, then automatically saves the API key to `~/.clevertech/config.json`.
 
 Or via environment variable:
 
 ```bash
 export CLEVERTECH_API_KEY=your_key_here
-npx @clevertech/mcp-server
+uvx clevertech-mcp-server
 ```
 
 ---
@@ -153,7 +148,7 @@ npx @clevertech/mcp-server
 ## Features
 
 - **No signup required** — 50 free queries/day out of the box
-- **11 MCP tools** covering property, permits, zoning, business registry, and DLS
+- **12 MCP tools** covering property, permits, zoning, business registry, and DLS
 - **Batch DLS conversion** — convert up to 100 coordinates in one call
 - **Consolidated property reports** — assessment + permits + zoning + DLS in a single response
 - **stdio transport** — works with Claude Code, Cursor, Cline, GitHub Copilot, and any MCP-compatible agent
@@ -167,12 +162,12 @@ npx @clevertech/mcp-server
 
 ```bash
 # Clone and set up
-git clone https://github.com/harmssam/clevertech-mcp-server.git
-cd clevertech-mcp-server
+git clone https://github.com/clevertechca/Clevertech-mcp-server.git
+cd Clevertech-mcp-server
 uv sync
 
 # Run locally (stdio transport)
-uv run clevertech-mcp-server --transport stdio
+uv run clevertech-mcp-server
 
 # Run with --login to authenticate and save your API key
 uv run clevertech-mcp-server --login

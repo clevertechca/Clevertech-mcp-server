@@ -358,7 +358,7 @@ LANDING_PAGE_HTML = """\
       ⚠️ <strong>Remote SSE endpoint decommissioned.</strong> The hosted SSE endpoint at
       <code>mcp.clevertech.ca</code> has been shut down as of June 2026.
       Use local stdio transport instead — it's faster, more reliable, and works
-      with every MCP client. No install required with <code>uvx</code> or <code>npx</code>.
+      with every MCP client. No install required with <code>uvx</code>.
     </div>
 
     <h3>Claude Desktop</h3>
@@ -403,19 +403,15 @@ LANDING_PAGE_HTML = """\
 }</pre>
     </div>
 
-    <h3>Direct CLI (npm / uv)</h3>
+    <h3>Direct CLI (uv)</h3>
     <div class="card">
-      <pre># npm (Node.js)
-npx @clevertech/mcp-server
-
-# uv / PyPI
-uvx clevertech-mcp-server</pre>
+      <pre>uvx clevertech-mcp-server</pre>
     </div>
 
     <h3>From Source</h3>
     <div class="card">
-      <pre>git clone https://github.com/harmssam/clevertech-mcp-server.git
-cd clevertech-mcp-server
+      <pre>git clone https://github.com/clevertechca/Clevertech-mcp-server.git
+cd Clevertech-mcp-server
 uv sync
 uv run clevertech-mcp-server</pre>
     </div>
@@ -436,7 +432,7 @@ uv run clevertech-mcp-server</pre>
       <p style="margin-top:0.5rem;font-size:0.85rem;">
         <strong>Option 1 — Device login (no terminal password):</strong>
       </p>
-      <pre style="margin-top:0.3rem;">npx @clevertech/mcp-server --login</pre>
+      <pre style="margin-top:0.3rem;">uvx clevertech-mcp-server --login</pre>
       <p style="font-size:0.82rem;color:#8ea4be;margin-top:0.2rem;">
         Opens a browser → sign in with Google → API key saved automatically to
         <code>~/.clevertech/config.json</code> (RFC 8628 device flow).
@@ -503,10 +499,9 @@ uvx clevertech-mcp-server</pre>
     <h2>Links</h2>
     <div class="links">
       <a href="https://clevertech.ca">clevertech.ca</a>
-      <a href="https://github.com/harmssam/clevertech-mcp-server">GitHub</a>
+      <a href="https://github.com/clevertechca/Clevertech-mcp-server">GitHub</a>
       <a href="https://clevertech.ca/docs">API Docs</a>
       <a href="https://pypi.org/project/clevertech-mcp-server/">PyPI</a>
-      <a href="https://www.npmjs.com/package/@clevertech/mcp-server">npm</a>
     </div>
   </section>
 
