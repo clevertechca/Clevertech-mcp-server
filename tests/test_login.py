@@ -1,40 +1,14 @@
 """
 Tests for the device authorization login flow (login.py).
 
-Tests the device_code → polling → save/load round-trip using
-mocked httpx.Client so no real network calls are made.
+Tests the device_code → polling flow using mocked httpx.Client
+so no real network calls are made.
 """
 
-import json
-import os
-import tempfile
 import pytest
 from unittest.mock import MagicMock
 
-from clevertech_mcp.login import (
-    _save_api_key,
-    load_saved_api_key,
-    device_login,
-)
-
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-@pytest.fixture
-def temp_config_dir(monkeypatch):
-    """Redirect ~/.clevertech to a temporary directory for isolation."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        cfg_dir = os.path.join(tmpdir, ".clevertech")
-        cfg_file = os.path.join(cfg_dir, "config.json")
-        monkeypatch.setattr(
-            "clevertech_mcp.login.CONFIG_DIR", cfg_dir
-        )
-        monkeypatch.setattr(
-            "clevertech_mcp.login.CONFIG_FILE", cfg_file
-        )
-        yield cfg_dir, cfg_file
+from clevertech_mcp.login import device_login
 
 
 # ---------------------------------------------------------------------------
@@ -59,67 +33,6 @@ class MockResponse:
                 request=MagicMock(),
                 response=self,
             )
-
-
-# ---------------------------------------------------------------------------
-# Tests: _save_api_key / load_saved_api_key
-# ---------------------------------------------------------------------------
-
-class TestSaveLoadApiKey:
-    """Round-trip: save a key, load it back."""
-
-    def test_save_and_load(self, temp_config_dir):
-        cfg_dir, cfg_file = temp_config_dir
-        _save_api_key("ctk_test_key_123")
-        assert os.path.exists(cfg_file)
-        loaded = load_saved_api_key()
-        assert loaded == "ctk_test_key_123"
-
-    def test_load_when_no_file(self, temp_config_dir):
-        cfg_dir, cfg_file = temp_config_dir
-        # No file saved yet
-        result = load_saved_api_key()
-        assert result is None
-
-    def test_save_overwrites_existing(self, temp_config_dir):
-        cfg_dir, cfg_file = temp_config_dir
-        _save_api_key("old_key")
-        _save_api_key("new_key")
-        assert load_saved_api_key() == "new_key"
-
-    def test_save_preserves_other_keys(self, temp_config_dir):
-        cfg_dir, cfg_file = temp_config_dir
-        # Manually create a config with extra keys
-        os.makedirs(cfg_dir, exist_ok=True)
-        with open(cfg_file, "w") as f:
-            json.dump({"api_key": "old_key", "other_setting": "value"}, f)
-        _save_api_key("new_key")
-        with open(cfg_file) as f:
-            data = json.load(f)
-        assert data["api_key"] == "new_key"
-        assert data["other_setting"] == "value"
-
-    def test_load_handles_corrupt_json(self, temp_config_dir):
-        cfg_dir, cfg_file = temp_config_dir
-        os.makedirs(cfg_dir, exist_ok=True)
-        with open(cfg_file, "w") as f:
-            f.write("not valid json{{{")
-        result = load_saved_api_key()
-        assert result is None
-
-    def test_load_handles_non_dict_config(self, temp_config_dir):
-        cfg_dir, cfg_file = temp_config_dir
-        os.makedirs(cfg_dir, exist_ok=True)
-        with open(cfg_file, "w") as f:
-            json.dump(["list", "not", "dict"], f)
-        result = load_saved_api_key()
-        assert result is None
-
-    def test_file_permissions(self, temp_config_dir):
-        cfg_dir, cfg_file = temp_config_dir
-        _save_api_key("ctk_permission_test")
-        mode = os.stat(cfg_file).st_mode & 0o777
-        assert mode == 0o600, f"Expected 0o600, got {oct(mode)}"
 
 
 # ---------------------------------------------------------------------------
@@ -164,7 +77,7 @@ class TestDeviceLogin:
 
         return MockClient
 
-    def test_successful_flow(self, temp_config_dir, monkeypatch):
+    def test_successful_flow(self, monkeypatch, capsys):
         """Full happy path: get code, poll once with success."""
         code_resp = {
             "status_code": 200,
@@ -187,10 +100,13 @@ class TestDeviceLogin:
 
         result = device_login(base_url="https://clevertech.ca")
         assert result == "ctk_real_key_xyz"
-        # Verify key was saved
-        assert load_saved_api_key() == "ctk_real_key_xyz"
 
-    def test_polling_authorization_pending_then_success(self, temp_config_dir, monkeypatch):
+        # Verify the key was printed in success output
+        captured = capsys.readouterr()
+        assert "ctk_real_key_xyz" in captured.out
+        assert "CLEVERTECH_API_KEY" in captured.out
+
+    def test_polling_authorization_pending_then_success(self, monkeypatch, capsys):
         """First poll returns authorization_pending, second returns success."""
         code_resp = {
             "status_code": 200,
@@ -213,9 +129,11 @@ class TestDeviceLogin:
 
         result = device_login(base_url="https://clevertech.ca")
         assert result == "ctk_pending_success"
-        assert load_saved_api_key() == "ctk_pending_success"
 
-    def test_access_denied(self, temp_config_dir, monkeypatch):
+        captured = capsys.readouterr()
+        assert "CLEVERTECH_API_KEY" in captured.out
+
+    def test_access_denied(self, monkeypatch):
         """User denies the authorization request."""
         code_resp = {
             "status_code": 200,
@@ -239,7 +157,7 @@ class TestDeviceLogin:
             device_login(base_url="https://clevertech.ca")
         assert exc_info.value.code == 1
 
-    def test_expired_token(self, temp_config_dir, monkeypatch):
+    def test_expired_token(self, monkeypatch):
         """Device code expires before user authorizes."""
         code_resp = {
             "status_code": 200,
@@ -263,7 +181,7 @@ class TestDeviceLogin:
             device_login(base_url="https://clevertech.ca")
         assert exc_info.value.code == 1
 
-    def test_timeout_waiting(self, temp_config_dir, monkeypatch):
+    def test_timeout_waiting(self, monkeypatch):
         """Deadline passes while still receiving authorization_pending."""
         code_resp = {
             "status_code": 200,
@@ -292,7 +210,7 @@ class TestDeviceLogin:
             device_login(base_url="https://clevertech.ca")
         assert exc_info.value.code == 1
 
-    def test_device_code_request_fails(self, temp_config_dir, monkeypatch):
+    def test_device_code_request_fails(self, monkeypatch):
         """Network error during device code request."""
         import httpx
 
@@ -312,7 +230,7 @@ class TestDeviceLogin:
             device_login(base_url="https://clevertech.ca")
         assert exc_info.value.code == 1
 
-    def test_trailing_slash_in_base_url(self, temp_config_dir, monkeypatch):
+    def test_trailing_slash_in_base_url(self, monkeypatch):
         """Base URL with trailing slash is normalized."""
         code_resp = {
             "status_code": 200,

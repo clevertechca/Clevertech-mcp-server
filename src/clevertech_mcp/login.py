@@ -5,49 +5,17 @@ Provides the ``device_login`` function that:
 1. POSTs to /auth/device/code to get a device code + verification URL
 2. Prints the URL for the user to open in their browser
 3. Polls /auth/device/token until the user authorizes or it expires
-4. Saves the resulting API key to ~/.clevertech/config.json
-5. Returns the API key string
+4. Prints the API key with instructions for setting CLEVERTECH_API_KEY
+5. Returns the API key string (caller sets it for the current session)
+
+No file-based persistence.  The user is responsible for storing the key
+as the ``CLEVERTECH_API_KEY`` environment variable in their MCP client
+config (Hermes, Claude Desktop, VS Code, etc.).
 """
 
-import json
-import os
 import sys
 import time
 import httpx
-
-CONFIG_DIR = os.path.expanduser("~/.clevertech")
-CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
-
-
-def _save_api_key(api_key: str) -> None:
-    """Save the API key to the config file."""
-    os.makedirs(CONFIG_DIR, exist_ok=True)
-    config: dict = {}
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE) as f:
-                config = json.load(f)
-            if not isinstance(config, dict):
-                config = {}
-        except (json.JSONDecodeError, OSError):
-            config = {}
-    config["api_key"] = api_key
-    with open(CONFIG_FILE, "w") as f:
-        json.dump(config, f, indent=2)
-    os.chmod(CONFIG_FILE, 0o600)  # Protect the key
-
-
-def load_saved_api_key() -> str | None:
-    """Load a previously saved API key from the config file, if any."""
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE) as f:
-                config = json.load(f)
-            if isinstance(config, dict):
-                return config.get("api_key")
-        except (json.JSONDecodeError, OSError):
-            pass
-    return None
 
 
 def device_login(base_url: str = "https://clevertech.ca") -> str:
@@ -111,13 +79,7 @@ def device_login(base_url: str = "https://clevertech.ca") -> str:
                         token_data = resp.json()
                         api_key = token_data.get("access_token")
                         if api_key:
-                            print("\n")
-                            _save_api_key(api_key)
-                            print("  ✅ Authorization successful!")
-                            print(f"  API key saved to {CONFIG_FILE}")
-                            print(f"  Your key: {api_key[:8]}...{api_key[-4:]}")
-                            print("\n  The MCP server will use this key automatically.")
-                            print("=" * 60 + "\n")
+                            _print_success(api_key)
                             return api_key
                     elif resp.status_code == 400:
                         error_data = resp.json()
@@ -149,3 +111,39 @@ def device_login(base_url: str = "https://clevertech.ca") -> str:
     print("\n")
     print("  ❌ Timed out waiting for authorization.")
     sys.exit(1)
+
+
+def _print_success(api_key: str) -> None:
+    """Print the API key and instructions for setting it in MCP client configs."""
+    print("\n")
+    print("  ✅ Authorization successful!")
+    print(f"\n  Your API key: {api_key}")
+    print(f"  (starts with: {api_key[:8]}...)")
+    print()
+    print("  " + "─" * 56)
+    print("  Set this as the CLEVERTECH_API_KEY environment variable")
+    print("  in your MCP client configuration:")
+    print()
+    print("  Hermes Agent — add to ~/.hermes/config.yaml:")
+    print("    mcp_servers:")
+    print("      clevertech:")
+    print("        env:")
+    print(f"          CLEVERTECH_API_KEY: {api_key}")
+    print()
+    print("  Claude Desktop — add to ~/.claude/claude_desktop_config.json:")
+    print('    "env": {')
+    print(f'      "CLEVERTECH_API_KEY": "{api_key}"')
+    print('    }')
+    print()
+    print("  VS Code — add to .vscode/mcp.json:")
+    print('    "env": {')
+    print(f'      "CLEVERTECH_API_KEY": "{api_key}"')
+    print('    }')
+    print()
+    print("  Or export directly in your shell:")
+    print(f"    export CLEVERTECH_API_KEY={api_key}")
+    print("  " + "─" * 56)
+    print()
+    print("  The server will use this key for the current session.")
+    print("  Restart your MCP client after setting the environment variable.")
+    print("=" * 60 + "\n")

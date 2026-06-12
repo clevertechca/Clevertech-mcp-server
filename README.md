@@ -124,24 +124,28 @@ No signup required to start. Free tier gives you 50 queries/day out of the box.
 
 ### Using an API Key
 
-```bash
-uvx clevertech-mcp-server --api-key YOUR_KEY
-```
-
-Or log in interactively via device authorization (no key needed):
-
-```bash
-uvx clevertech-mcp-server --login
-```
-
-This prints a URL in your terminal for you to open and sign in with your Google account, then automatically saves the API key to `~/.clevertech/config.json`.
-
-Or via environment variable:
+Set the ``CLEVERTECH_API_KEY`` environment variable (recommended):
 
 ```bash
 export CLEVERTECH_API_KEY=your_key_here
 uvx clevertech-mcp-server
 ```
+
+Or pass it as a CLI flag:
+
+```bash
+uvx clevertech-mcp-server --api-key YOUR_KEY
+```
+
+To get a new key, use device login:
+
+```bash
+uvx clevertech-mcp-server --login
+```
+
+This opens a browser for Google sign-in, then prints your API key with
+instructions for setting the environment variable (RFC 8628 device flow).
+The key is **not** saved to disk — you configure it in your MCP client.
 
 ---
 
@@ -169,7 +173,7 @@ uv sync
 # Run locally (stdio transport)
 uv run clevertech-mcp-server
 
-# Run with --login to authenticate and save your API key
+# Run with --login to get an API key
 uv run clevertech-mcp-server --login
 
 # Run with SSE transport (for HTTP-based agents)
