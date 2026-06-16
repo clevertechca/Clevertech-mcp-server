@@ -4,12 +4,19 @@ Search, lookup, and report on properties across Canadian cities.
 Provides assessment data, building permits, zoning, and DLS coordinates.
 """
 
+import asyncio
 import json
+import time
+
+import httpx
 
 from mcp.server.fastmcp import FastMCP, Context
 from clevertech_mcp.client import CleverTechClient
 from clevertech_mcp.rate_limit import LocalRateLimiter
 from clevertech_mcp.auth import _get_user_api_key, get_upstream_key, is_authenticated, _extract_client_ip
+
+# Nominatim rate limit compliance — max 1 request/second
+_last_nominatim_time: float = 0.0
 
 
 def register_property_tools(
@@ -23,7 +30,11 @@ def register_property_tools(
             "Search for properties by address across 13+ Canadian cities. "
             "Returns assessment data including value, lot size, year built, "
             "and DLS coordinates. Supports sorting by assessed_value, address, "
-            "year_built, community, and value range filtering."
+            "year_built, community, and value range filtering. "
+            "If no assessment results are found, falls back to Nominatim/OpenStreetMap "
+            "forward geocoding; if the address resolves to a real location, returns "
+            "a helpful message explaining why it may be missing from the assessment database "
+            "(e.g. tax-exempt, new development, unit in larger parcel) instead of a plain '0 of 0'."
         ),
     )
     async def property_search(
@@ -80,6 +91,48 @@ def register_property_tools(
         results = data.get("results", [])
         total = data.get("total", 0)
         message = data.get("_message", "")
+
+        if len(results) == 0:
+            # Respect Nominatim's 1 request/second policy
+            global _last_nominatim_time
+            _now = time.monotonic()
+            _elapsed = _now - _last_nominatim_time
+            if _elapsed < 1.0:
+                await asyncio.sleep(1.0 - _elapsed)
+            try:
+                async with httpx.AsyncClient() as nom_client:
+                    geo_resp = await nom_client.get(
+                        "https://nominatim.openstreetmap.org/search",
+                        params={
+                            "q": f"{address} {city} Canada",
+                            "format": "jsonv2",
+                            "limit": 1,
+                        },
+                        headers={"User-Agent": "CleverTech-MCP/1.0"},
+                        timeout=10.0,
+                    )
+                    geo_resp.raise_for_status()
+                    geo_results = geo_resp.json()
+                    _last_nominatim_time = time.monotonic()
+                    if geo_results and len(geo_results) > 0:
+                        geo = geo_results[0]
+                        lat = geo.get("lat", "?")
+                        lon = geo.get("lon", "?")
+                        fallback_msg = (
+                            f"No assessment data found for '{address}' in {city}.\n\n"
+                            f"However, the address was found on OpenStreetMap at {lat}, {lon} — it likely exists as a real location but is not in the municipal property assessment database. This is common for:\n"
+                            "- Tax-exempt properties (hospitals, schools, churches, government buildings)\n"
+                            "- Unit-level addresses within larger commercial parcels (shopping centres, plazas)\n"
+                            "- New developments not yet added to the assessment roll\n"
+                            "- Non-taxable municipal facilities (libraries, rec centres, parks)\n\n"
+                            "Try searching a nearby street number or the parent property."
+                        )
+                        if message:
+                            fallback_msg += f"\n\n{message}"
+                        return fallback_msg
+            except (httpx.RequestError, httpx.TimeoutException, httpx.HTTPStatusError, json.JSONDecodeError, IndexError, TypeError):
+                # Nominatim failed or timed out — fall back to original empty result message
+                pass
 
         lines: list[str] = [f"Found {len(results)} of {total} properties"]
         if message:

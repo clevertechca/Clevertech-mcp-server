@@ -261,7 +261,7 @@ LANDING_PAGE_HTML = """\
 
       <div class="tool-card">
         <div class="tool-name">property_search</div>
-        <div class="tool-desc">Search property assessments by address across 13+ Canadian cities. Returns assessed value, lot size, year built, and DLS coordinates.</div>
+        <div class="tool-desc">Search property assessments by address across 13+ Canadian cities. Returns assessed value, lot size, year built, and DLS coordinates. Falls back to OpenStreetMap for locations not in the assessment database (tax-exempt properties, new developments, unit-level addresses).</div>
         <div class="tool-params">
           <code>city</code> <span>string (required) — city slug</span><br>
           <code>address</code> <span>string (required) — partial address match</span><br>
