@@ -213,14 +213,19 @@ def register_property_tools(
         if permits:
             lines.append(f"\n## Building Permits ({len(permits)})")
             for p in permits[:10]:
-                job_value = (
-                    f"${p.get('job_value', 0):,.0f}"
-                    if p.get("job_value") is not None
-                    else "N/A"
+                # Upstream uses permit_id + estimated_value; keep legacy aliases
+                permit_id = p.get("permit_id") or p.get("permit_number") or "N/A"
+                raw_value = (
+                    p.get("estimated_value")
+                    if p.get("estimated_value") is not None
+                    else p.get("job_value")
                 )
+                job_value = f"${raw_value:,.0f}" if raw_value is not None else "N/A"
+                status = p.get("status")
+                status_bit = f" [{status}]" if status else ""
                 lines.append(
-                    f"- {p.get('permit_number', 'N/A')}: "
-                    f"{p.get('permit_type', 'N/A')} — {job_value}"
+                    f"- {permit_id}: "
+                    f"{p.get('permit_type', 'N/A')} — {job_value}{status_bit}"
                 )
 
         zoning = data.get("zoning")

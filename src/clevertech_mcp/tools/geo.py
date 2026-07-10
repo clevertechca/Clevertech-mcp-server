@@ -63,32 +63,53 @@ def register_geo_tools(
         if data.get("confidence"):
             lines.append(f"Confidence: {data['confidence']}")
 
-        # If we have a city and address, try to look up the property
+        # Best-effort nearest property: prefer street segment, not full Nominatim string
         city_name = data.get("city", "").strip()
         geocoded_address = data.get("address", "").strip()
-        city_slug = data.get("city_slug", city_name.lower().replace(" ", "-"))
+        city_slug = (
+            data.get("city_slug")
+            or city_name.lower().replace(" ", "-").replace("'", "")
+        )
+        # "9 Avenue SW, Downtown Commercial Core, Calgary..." → "9 Avenue SW"
+        street_query = geocoded_address.split(",")[0].strip() if geocoded_address else ""
+        # Heuristic: Avenue → AV (common assessment abbreviation)
+        street_query_abbr = (
+            street_query.replace(" Avenue ", " AV ")
+            .replace(" Street ", " ST ")
+            .replace(" Road ", " RD ")
+            .replace(" Drive ", " DR ")
+            .replace(" Boulevard ", " BLVD ")
+            .replace(" Trail ", " TR ")
+            if street_query
+            else ""
+        )
 
-        if city_slug and geocoded_address:
-            try:
-                prop_data = await client.get(
-                    f"/api/{city_slug}/property/search",
-                    params={"address": geocoded_address, "limit": 1},
-                    api_key=upstream_key,
-                )
-                props = prop_data.get("results", [])
-                if props:
-                    prop = props[0]
-                    lines.append("")
-                    lines.append("**Nearest Property:**")
-                    lines.append(f"- Roll: {prop.get('roll_number', 'N/A')}")
-                    if prop.get("assessed_value") is not None:
-                        lines.append(
-                            f"- Assessed Value: ${prop['assessed_value']:,.0f}"
-                        )
-                    if prop.get("property_type"):
-                        lines.append(f"- Type: {prop['property_type']}")
-            except Exception:
-                pass  # Property lookup is best-effort
+        if city_slug and street_query:
+            for query in (street_query_abbr, street_query):
+                if not query:
+                    continue
+                try:
+                    prop_data = await client.get(
+                        f"/api/{city_slug}/property/search",
+                        params={"address": query, "limit": 1},
+                        api_key=upstream_key,
+                    )
+                    props = prop_data.get("results", [])
+                    if props:
+                        prop = props[0]
+                        lines.append("")
+                        lines.append("**Nearest Property:**")
+                        lines.append(f"- Address: {prop.get('address', 'N/A')}")
+                        lines.append(f"- Roll: {prop.get('roll_number', 'N/A')}")
+                        if prop.get("assessed_value") is not None:
+                            lines.append(
+                                f"- Assessed Value: ${prop['assessed_value']:,.0f}"
+                            )
+                        if prop.get("property_type"):
+                            lines.append(f"- Type: {prop['property_type']}")
+                        break
+                except Exception:
+                    pass  # Property lookup is best-effort
 
         if data.get("_message"):
             lines.append(f"\n{data['_message']}")

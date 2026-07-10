@@ -6,6 +6,39 @@ from clevertech_mcp.rate_limit import LocalRateLimiter
 from clevertech_mcp.auth import _get_user_api_key, get_upstream_key, is_authenticated, _extract_client_ip
 
 
+def _permit_id(r: dict) -> str:
+    """Upstream uses permit_id; older fixtures/docs used permit_number."""
+    return r.get("permit_id") or r.get("permit_number") or "N/A"
+
+
+def _permit_value(r: dict):
+    """Upstream uses estimated_value; older fixtures used job_value."""
+    if r.get("estimated_value") is not None:
+        return r.get("estimated_value")
+    return r.get("job_value")
+
+
+def _permit_issued(r: dict) -> str:
+    """Upstream uses issue_date; older fixtures used issued_date."""
+    return r.get("issue_date") or r.get("issued_date") or "N/A"
+
+
+def _format_permit_block(r: dict) -> list[str]:
+    value = _permit_value(r)
+    value_line = f"Value: ${value:,.0f}" if value is not None else "Value: N/A"
+    return [
+        "",
+        "---",
+        f"Permit: {_permit_id(r)}",
+        f"Type: {r.get('permit_type', 'N/A')}",
+        f"Status: {r.get('status', 'N/A')}",
+        f"Address: {r.get('address', 'N/A')}",
+        f"Applicant: {r.get('applicant', 'N/A')}",
+        value_line,
+        f"Issued: {_permit_issued(r)}",
+    ]
+
+
 def register_building_tools(mcp: FastMCP, client: CleverTechClient, config: dict, rate_limiter: LocalRateLimiter):
     """Register building permit tools."""
 
@@ -50,17 +83,7 @@ def register_building_tools(mcp: FastMCP, client: CleverTechClient, config: dict
             lines.append(f"\n{message}")
 
         for r in results:
-            lines.extend([
-                "",
-                "---",
-                f"Permit: {r.get('permit_number', 'N/A')}",
-                f"Type: {r.get('permit_type', 'N/A')}",
-                f"Status: {r.get('status', 'N/A')}",
-                f"Address: {r.get('address', 'N/A')}",
-                f"Applicant: {r.get('applicant', 'N/A')}",
-                f"Value: ${r.get('job_value', 0):,.0f}" if r.get('job_value') is not None else "Value: N/A",
-                f"Issued: {r.get('issued_date', 'N/A')}",
-            ])
+            lines.extend(_format_permit_block(r))
 
         return "\n".join(lines)
 
@@ -100,15 +123,6 @@ def register_building_tools(mcp: FastMCP, client: CleverTechClient, config: dict
             lines.append(f"\n{message}")
 
         for r in results:
-            lines.extend([
-                "",
-                "---",
-                f"Permit: {r.get('permit_number', 'N/A')}",
-                f"Type: {r.get('permit_type', 'N/A')}",
-                f"Status: {r.get('status', 'N/A')}",
-                f"Address: {r.get('address', 'N/A')}",
-                f"Value: ${r.get('job_value', 0):,.0f}" if r.get('job_value') is not None else "Value: N/A",
-                f"Issued: {r.get('issued_date', 'N/A')}",
-            ])
+            lines.extend(_format_permit_block(r))
 
         return "\n".join(lines)
