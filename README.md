@@ -1,5 +1,7 @@
 # CleverTech MCP Server
 
+<!-- mcp-name: io.github.clevertechca/clevertech-mcp-server -->
+
 **Canadian government data for AI agents.** Property assessments, building permits, zoning, business registry, DLS grid conversion — 50 free queries/day, no signup.
 
 ```bash
