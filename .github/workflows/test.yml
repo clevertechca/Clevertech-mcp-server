@@ -36,3 +36,9 @@ jobs:
 
       - name: Test with pytest
         run: uv run pytest -v tests/
+
+      - name: Verify uvx install (mcp SDK v1 / FastMCP)
+        run: |
+          uv build
+          wheel="$(ls dist/clevertech_mcp_server-*.whl | head -1)"
+          uvx --from "$wheel" clevertech-mcp-server --help
