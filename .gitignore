@@ -28,3 +28,6 @@ Thumbs.db
 
 # uv (lockfile is committed for reproducible builds — keep commented)
 # uv.lock
+
+# MCP registry DNS auth private keys — DO NOT COMMIT
+.registry/
