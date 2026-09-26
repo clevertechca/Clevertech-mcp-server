@@ -7,13 +7,35 @@ Provides assessment data, building permits, zoning, and DLS coordinates.
 import asyncio
 import json
 import time
+from typing import Annotated, Optional
 
 import httpx
 
 from mcp.server.fastmcp import FastMCP, Context
+from pydantic import Field
 from clevertech_mcp.client import CleverTechClient
 from clevertech_mcp.rate_limit import LocalRateLimiter
 from clevertech_mcp.auth import _get_user_api_key, get_upstream_key, is_authenticated, _extract_client_ip
+from clevertech_mcp.schema_hints import CITY_SLUG, ROLL_NUMBER
+
+_PROPERTY_REPORT_DESCRIPTION = (
+    "Fetch a consolidated, human-readable property dossier for one assessment roll: "
+    "core assessment fields, building permits linked to the address (up to 10 shown), "
+    "zoning summary, and DLS coordinates when on file. "
+    "Requires city slug + roll_number (from property_search, property_top, or "
+    "reverse_geocode). "
+    "Prefer property_by_roll when you only need raw assessment JSON for one roll; "
+    "prefer property_search when you have a street address but not the roll yet. "
+    "Requires CLEVERTECH_API_KEY (50 free API calls/day after sign-in)."
+)
+
+_PROPERTY_BY_ROLL_DESCRIPTION = (
+    "Look up a single municipal property assessment record by roll number and return "
+    "the upstream JSON (values, land/building split, lot size, year built, DLS, etc.). "
+    "Faster and smaller than property_report when permits and zoning are not needed. "
+    "Use property_report for permits + zoning in one call; use property_search to "
+    "discover roll numbers from an address. Requires city slug + roll_number."
+)
 
 # Nominatim rate limit compliance — max 1 request/second
 _last_nominatim_time: float = 0.0
@@ -38,29 +60,53 @@ def register_property_tools(
         ),
     )
     async def property_search(
-        city: str,
-        address: str,
-        limit: int = 10,
-        offset: int = 0,
-        sort_by: str = None,
-        order: str = "asc",
-        min_value: float = None,
-        max_value: float = None,
+        city: Annotated[str, Field(description=CITY_SLUG)],
+        address: Annotated[
+            str,
+            Field(
+                description=(
+                    "Street address or fragment to match against the city's assessment "
+                    "database (partial matches supported). Use property_by_roll or "
+                    "property_report when you already have the roll number."
+                )
+            ),
+        ],
+        limit: Annotated[
+            int,
+            Field(
+                description="Maximum results to return (1–200, default 10).",
+                ge=1,
+                le=200,
+            ),
+        ] = 10,
+        offset: Annotated[
+            int,
+            Field(description="Pagination offset for subsequent pages (default 0).", ge=0),
+        ] = 0,
+        sort_by: Annotated[
+            Optional[str],
+            Field(
+                description=(
+                    "Optional sort column: assessed_value, address, year_built, "
+                    "community, or lot_size_sqft."
+                )
+            ),
+        ] = None,
+        order: Annotated[
+            str,
+            Field(description="Sort order when sort_by is set: 'asc' or 'desc' (default asc)."),
+        ] = "asc",
+        min_value: Annotated[
+            Optional[float],
+            Field(description="Optional filter: minimum assessed_value (CAD)."),
+        ] = None,
+        max_value: Annotated[
+            Optional[float],
+            Field(description="Optional filter: maximum assessed_value (CAD)."),
+        ] = None,
         ctx: Context = None,
     ) -> str:
-        """Search for properties by address.
-
-        Args:
-            city: City slug (calgary, toronto, vancouver, montreal, edmonton,
-                  etc.).
-            address: Street address to search (partial matches supported).
-            limit: Max results (1-200, default 10).
-            offset: Pagination offset.
-            sort_by: Sort column: assessed_value, address, year_built, community, lot_size_sqft.
-            order: Sort order: asc or desc.
-            min_value: Only return properties with assessed_value >= this.
-            max_value: Only return properties with assessed_value <= this.
-        """
+        """Search for properties by address."""
         # Resolve user API key and rate limit anonymous users
         user_key = _get_user_api_key(ctx)
         upstream_key = get_upstream_key(user_key, config.get("api_key"))
@@ -159,19 +205,14 @@ def register_property_tools(
 
     @mcp.tool(
         name="property_report",
-        description=(
-            "Get a consolidated property report — assessment data, building "
-            "permits at this address, zoning information, and DLS coordinates "
-            "in a single response."
-        ),
+        description=_PROPERTY_REPORT_DESCRIPTION,
     )
-    async def property_report(city: str, roll_number: str, ctx: Context = None) -> str:
-        """Get a consolidated property report.
-
-        Args:
-            city: City slug.
-            roll_number: Property roll number.
-        """
+    async def property_report(
+        city: Annotated[str, Field(description=CITY_SLUG)],
+        roll_number: Annotated[str, Field(description=ROLL_NUMBER)],
+        ctx: Context = None,
+    ) -> str:
+        """Get a consolidated property report."""
         # Resolve user API key and rate limit anonymous users
         user_key = _get_user_api_key(ctx)
         upstream_key = get_upstream_key(user_key, config.get("api_key"))
@@ -246,18 +287,14 @@ def register_property_tools(
 
     @mcp.tool(
         name="property_by_roll",
-        description=(
-            "Get a single property assessment record by its roll number. "
-            "Faster than search when you already know the roll number."
-        ),
+        description=_PROPERTY_BY_ROLL_DESCRIPTION,
     )
-    async def property_by_roll(city: str, roll_number: str, ctx: Context = None) -> str:
-        """Get a property by its roll number.
-
-        Args:
-            city: City slug.
-            roll_number: Property roll number.
-        """
+    async def property_by_roll(
+        city: Annotated[str, Field(description=CITY_SLUG)],
+        roll_number: Annotated[str, Field(description=ROLL_NUMBER)],
+        ctx: Context = None,
+    ) -> str:
+        """Get a property by its roll number."""
         # Resolve user API key and rate limit anonymous users
         user_key = _get_user_api_key(ctx)
         upstream_key = get_upstream_key(user_key, config.get("api_key"))

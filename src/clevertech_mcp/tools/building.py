@@ -1,9 +1,30 @@
 """Building permit MCP tools."""
 
+from typing import Annotated, Optional
+
 from mcp.server.fastmcp import FastMCP, Context
+from pydantic import Field
+
 from clevertech_mcp.client import CleverTechClient
 from clevertech_mcp.rate_limit import LocalRateLimiter
 from clevertech_mcp.auth import _get_user_api_key, get_upstream_key, is_authenticated, _extract_client_ip
+from clevertech_mcp.schema_hints import CITY_SLUG
+
+_BUILDING_PERMIT_SEARCH_DESCRIPTION = (
+    "Full-text search of issued building permits in a city by address fragment, "
+    "contractor, applicant name, or permit ID. Returns permit type, status, job value, "
+    "and issue date for each match (paginated up to limit). "
+    "Use building_permit_recent for a chronological feed of the newest permits city-wide "
+    "without a search query; use property_report for permits tied to one assessment roll. "
+    "Requires CLEVERTECH_API_KEY."
+)
+
+_BUILDING_PERMIT_RECENT_DESCRIPTION = (
+    "List the most recently issued building permits in a city (newest first), without "
+    "a search query — useful for construction activity monitoring or news digests. "
+    "Use building_permit_search when you need to filter by address, contractor, "
+    "applicant, or permit number. Requires city slug from list_cities."
+)
 
 
 def _permit_id(r: dict) -> str:
@@ -44,23 +65,35 @@ def register_building_tools(mcp: FastMCP, client: CleverTechClient, config: dict
 
     @mcp.tool(
         name="building_permit_search",
-        description="Search building permits by address, contractor, applicant, or permit number across 13+ Canadian cities. Returns permit details including type, value, status, and dates.",
+        description=_BUILDING_PERMIT_SEARCH_DESCRIPTION,
     )
     async def building_permit_search(
-        city: str,
-        q: str,
-        permit_type: str = None,
-        limit: int = 20,
+        city: Annotated[str, Field(description=CITY_SLUG)],
+        q: Annotated[
+            str,
+            Field(
+                description=(
+                    "Search text: street address, contractor name, applicant, or permit "
+                    "number/ID. Required."
+                )
+            ),
+        ],
+        permit_type: Annotated[
+            Optional[str],
+            Field(
+                description=(
+                    "Optional filter on permit category (city-specific), e.g. Building, "
+                    "Demolition, Electrical."
+                )
+            ),
+        ] = None,
+        limit: Annotated[
+            int,
+            Field(description="Max permits to return (1–200, default 20).", ge=1, le=200),
+        ] = 20,
         ctx: Context = None,
     ) -> str:
-        """Search building permits.
-
-        Args:
-            city: City slug
-            q: Search query (address, contractor, applicant, or permit number)
-            permit_type: Filter by permit type (e.g., 'Building', 'Demolition', 'Electrical')
-            limit: Max results (1-200, default 20)
-        """
+        """Search building permits."""
         # Resolve user API key and rate limit anonymous users
         user_key = _get_user_api_key(ctx)
         upstream_key = get_upstream_key(user_key, config.get("api_key"))
@@ -89,19 +122,17 @@ def register_building_tools(mcp: FastMCP, client: CleverTechClient, config: dict
 
     @mcp.tool(
         name="building_permit_recent",
-        description="Get the most recently issued building permits for a city. Useful for monitoring new construction activity.",
+        description=_BUILDING_PERMIT_RECENT_DESCRIPTION,
     )
     async def building_permit_recent(
-        city: str,
-        limit: int = 20,
+        city: Annotated[str, Field(description=CITY_SLUG)],
+        limit: Annotated[
+            int,
+            Field(description="Number of recent permits to return (1–100, default 20).", ge=1, le=100),
+        ] = 20,
         ctx: Context = None,
     ) -> str:
-        """Get recently issued permits.
-
-        Args:
-            city: City slug
-            limit: Max results (1-100, default 20)
-        """
+        """Get recently issued permits."""
         # Resolve user API key and rate limit anonymous users
         user_key = _get_user_api_key(ctx)
         upstream_key = get_upstream_key(user_key, config.get("api_key"))
