@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "clevertech": {
+      "command": "uvx",
+      "args": ["clevertech-mcp-server"],
+      "env": {
+        "CLEVERTECH_API_KEY": "${env:CLEVERTECH_API_KEY}"
+      }
+    }
+  }
+}
