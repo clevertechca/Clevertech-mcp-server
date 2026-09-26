@@ -1,9 +1,24 @@
 """Zoning MCP tools."""
 
+from typing import Annotated, Optional
+
 from mcp.server.fastmcp import FastMCP, Context
+from pydantic import Field
+
 from clevertech_mcp.client import CleverTechClient
 from clevertech_mcp.rate_limit import LocalRateLimiter
 from clevertech_mcp.auth import _get_user_api_key, get_upstream_key, is_authenticated, _extract_client_ip
+from clevertech_mcp.schema_hints import CITY_SLUG
+
+_ZONING_LOOKUP_DESCRIPTION = (
+    "Return municipal zoning for a location in a supported Canadian city: zone code, "
+    "description, district name, land use, and whether boundary geometry is present. "
+    "Supply either (lat AND lon) in WGS84 decimal degrees OR a street address string; "
+    "when both are provided, GPS takes precedence. "
+    "Use property_report when you need assessment + permits + zoning together for a "
+    "known roll number; use this tool for zoning-only questions at a point or address. "
+    "Requires CLEVERTECH_API_KEY. Call list_cities to confirm zoning coverage for a slug."
+)
 
 
 def register_zoning_tools(mcp: FastMCP, client: CleverTechClient, config: dict, rate_limiter: LocalRateLimiter):
@@ -11,23 +26,38 @@ def register_zoning_tools(mcp: FastMCP, client: CleverTechClient, config: dict, 
 
     @mcp.tool(
         name="zoning_lookup",
-        description="Look up zoning district information for a GPS point or address in a Canadian city. Returns zone code, description, and district boundaries.",
+        description=_ZONING_LOOKUP_DESCRIPTION,
     )
     async def zoning_lookup(
-        city: str,
-        lat: float = None,
-        lon: float = None,
-        address: str = None,
+        city: Annotated[str, Field(description=CITY_SLUG)],
+        lat: Annotated[
+            Optional[float],
+            Field(
+                description=(
+                    "Latitude (WGS84). Required together with lon when not using address."
+                )
+            ),
+        ] = None,
+        lon: Annotated[
+            Optional[float],
+            Field(
+                description=(
+                    "Longitude (WGS84). Required together with lat when not using address."
+                )
+            ),
+        ] = None,
+        address: Annotated[
+            Optional[str],
+            Field(
+                description=(
+                    "Street address to geocode within the city. Use when you do not have "
+                    "GPS coordinates. Ignored when both lat and lon are supplied."
+                )
+            ),
+        ] = None,
         ctx: Context = None,
     ) -> str:
-        """Get zoning information.
-
-        Args:
-            city: City slug
-            lat: Latitude (alternative to address)
-            lon: Longitude (alternative to address)
-            address: Street address (alternative to lat/lon)
-        """
+        """Get zoning information."""
         # Resolve user API key and rate limit anonymous users
         user_key = _get_user_api_key(ctx)
         upstream_key = get_upstream_key(user_key, config.get("api_key"))

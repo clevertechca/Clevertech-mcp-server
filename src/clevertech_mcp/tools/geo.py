@@ -1,6 +1,9 @@
 """Geocoding MCP tools."""
 
+from typing import Annotated
+
 from mcp.server.fastmcp import FastMCP, Context
+from pydantic import Field
 from clevertech_mcp.client import CleverTechClient
 from clevertech_mcp.rate_limit import LocalRateLimiter
 from clevertech_mcp.auth import (
@@ -25,16 +28,18 @@ def register_geo_tools(
             "all Canadian cities in the CleverTech database."
         ),
     )
-    async def reverse_geocode(lat: float, lon: float, ctx: Context = None) -> str:
-        """Reverse geocode GPS coordinates with optional property lookup.
-
-        If the geocoded address falls within a known property parcel,
-        the roll number and assessed value are included automatically.
-
-        Args:
-            lat: Latitude
-            lon: Longitude
-        """
+    async def reverse_geocode(
+        lat: Annotated[
+            float,
+            Field(description="Latitude in decimal degrees (WGS84). Required."),
+        ],
+        lon: Annotated[
+            float,
+            Field(description="Longitude in decimal degrees (WGS84). Required."),
+        ],
+        ctx: Context = None,
+    ) -> str:
+        """Reverse geocode GPS coordinates with optional property lookup."""
         # Resolve user API key and rate limit anonymous users
         user_key = _get_user_api_key(ctx)
         upstream_key = get_upstream_key(user_key, config.get("api_key"))
