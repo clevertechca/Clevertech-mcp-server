@@ -55,15 +55,17 @@ Get a key at https://clevertech.ca/keys
 
 ## Pricing
 
-The **free tier** requires no API key: **Try the API. No card.** **50 calls / day**. Paid options (all CAD):
+The **free tier** requires no API key: **Try the API. No card.** **50 calls / day**. Paid options (all CAD). Annual billing saves 20% versus monthly.
 
-| Tier | Daily allowance | Price |
-|------|-----------------|-------|
-| Free | 50 calls / day | $0 |
-| Developer | 2,000 calls / day | $149/mo (billed $1,428/yr) |
-| Team Pro | 10,000 calls / day | $499/mo (billed $4,788/yr) |
-| Enterprise | Custom | Contact sales |
-| Prepaid | n/a (never expire) | Starter 2,000 $29; Project 10,000 $99; Volume 50,000 $399 |
+| Plan | Daily calls | Monthly | Annual |
+|------|-------------|---------|--------|
+| Free | 50 / day | $0 — Try the API. No card. | $0 — Try the API. No card. |
+| Developer | 2,000 / day | $149 CAD/mo | $119 CAD/mo (billed $1,428/yr) |
+| Team Pro | 10,000 / day | $499 CAD/mo | $399 CAD/mo (billed $4,788/yr) |
+| Enterprise | Custom | Contact sales | Contact sales |
+| Prepaid | n/a (never expire) | Starter 2,000 $29 CAD; Project 10,000 $99 CAD; Volume 50,000 $399 CAD | same (pay once) |
+
+Support: Free — Standard email support; Developer — Email support; Team Pro — Priority support; Enterprise — Dedicated support.
 
 Daily allowances, prepaid bundles, and plan details: https://clevertech.ca/pricing
 
