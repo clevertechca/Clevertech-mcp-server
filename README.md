@@ -156,13 +156,13 @@ Source of truth: [clevertech.ca/pricing](https://clevertech.ca/pricing). Paid pl
 | **Team Pro** | 10,000 / day | $499 CAD/mo | $399 CAD/mo (billed $4,788/yr) |
 | **Enterprise** | Custom | Contact sales | Contact sales |
 
-**Free** (from the live pricing page): all 9 datasets, 100 results per query, 30 req/min, limited API key, web and MCP, DLS conversions (5 calls each), email support at a lower priority than paid plans.
+**Free** (from the live pricing page): all 9 datasets, 100 results per query, 30 req/min, limited API key, web and MCP, DLS conversions (5 calls each), Standard email support.
 
-**Developer** — for builders and solo surveyors: everything in Free, 250 results per query, 120 req/min, CSV and JSON export, email support.
+**Developer** — for builders and solo surveyors: everything in Free, 250 results per query, 120 req/min, CSV and JSON export, Email support.
 
-**Team Pro** — for firms and municipalities: everything in Developer, 500 results per query, 600 req/min, batch lookup (10K records), webhook alerts, up to 5 seats, priority support.
+**Team Pro** — for firms and municipalities: everything in Developer, 500 results per query, 600 req/min, batch lookup (10K records), webhook alerts, up to 5 seats, Priority support.
 
-**Enterprise** — extra seats, SLA and invoicing, bulk extracts, custom allowance, dedicated support.
+**Enterprise** — extra seats, SLA and invoicing, bulk extracts, custom allowance, Dedicated support.
 
 The [agents](https://clevertech.ca/agents) page matches these plan names. Subscription amounts above follow [clevertech.ca/pricing](https://clevertech.ca/pricing): Developer $149 CAD/mo monthly or $119 CAD/mo annually; Team Pro $499 CAD/mo monthly or $399 CAD/mo annually.
 

@@ -65,6 +65,8 @@ The **free tier** requires no API key: **Try the API. No card.** **50 calls / da
 | Enterprise | Custom | Contact sales | Contact sales |
 | Prepaid | n/a (never expire) | Starter 2,000 $29 CAD; Project 10,000 $99 CAD; Volume 50,000 $399 CAD | same (pay once) |
 
+Support: Free — Standard email support; Developer — Email support; Team Pro — Priority support; Enterprise — Dedicated support.
+
 Daily allowances, prepaid bundles, and plan details: https://clevertech.ca/pricing
 
 ## Tool overview
