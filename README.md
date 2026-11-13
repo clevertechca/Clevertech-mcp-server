@@ -145,18 +145,18 @@ Use `list_cities` for live coverage. Cities span Alberta, BC, Ontario, Quebec, M
 
 ## Pricing (CAD)
 
-Source of truth: [clevertech.ca/pricing](https://clevertech.ca/pricing). Paid plans apply the same daily quotas to the REST API and the CleverTech MCP server (`uvx clevertech-mcp-server`). All prices are in CAD.
+Source of truth: [clevertech.ca/pricing](https://clevertech.ca/pricing). Paid plans apply the same daily quotas to the REST API and the CleverTech MCP server (`uvx clevertech-mcp-server`). All prices are in CAD. Annual billing saves 20% versus monthly (the Annual column is the effective monthly rate after that discount).
 
 ### Subscriptions
 
-| Plan | Daily allowance | Price |
-|------|-----------------|-------|
-| **Free** | 50 calls / day | $0 — Try the API. No card. |
-| **Developer** | 2,000 calls / day | $149 CAD/mo |
-| **Team Pro** | 10,000 calls / day | $499 CAD/mo |
-| **Enterprise** | Custom allowance | Contact sales |
+| Plan | Daily calls | Monthly | Annual |
+|------|-------------|---------|--------|
+| **Free** | 50 / day | $0 — Try the API. No card. | $0 — Try the API. No card. |
+| **Developer** | 2,000 / day | $149 CAD/mo | $119 CAD/mo (billed $1,428/yr) |
+| **Team Pro** | 10,000 / day | $499 CAD/mo | $399 CAD/mo (billed $4,788/yr) |
+| **Enterprise** | Custom | Contact sales | Contact sales |
 
-**Free** (from the live pricing page): all 9 datasets, 100 results per query, 30 req/min, limited API key, web and MCP, DLS conversions (5 calls each), community support.
+**Free** (from the live pricing page): all 9 datasets, 100 results per query, 30 req/min, limited API key, web and MCP, DLS conversions (5 calls each), Email support (slower response).
 
 **Developer** — for builders and solo surveyors: everything in Free, 250 results per query, 120 req/min, CSV and JSON export, email support.
 
@@ -164,7 +164,7 @@ Source of truth: [clevertech.ca/pricing](https://clevertech.ca/pricing). Paid pl
 
 **Enterprise** — extra seats, SLA and invoicing, bulk extracts, custom allowance, dedicated support.
 
-The [agents](https://clevertech.ca/agents) page matches these plan names and prices: Free $0 (50 queries / day, no API key required), Developer $149/mo, Team Pro $499/mo, Enterprise custom.
+The [agents](https://clevertech.ca/agents) page matches these plan names. Subscription amounts above follow [clevertech.ca/pricing](https://clevertech.ca/pricing): Developer $149 CAD/mo monthly or $119 CAD/mo annually; Team Pro $499 CAD/mo monthly or $399 CAD/mo annually.
 
 ### Prepaid API calls
 
