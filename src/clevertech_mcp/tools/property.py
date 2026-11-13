@@ -1,136 +1,115 @@
 """Property-related MCP tools.
 
-Search, lookup, and report on properties across Canadian cities.
-Provides assessment data, building permits, zoning, and DLS coordinates.
+Search, lookup, nearby, stats, batch, and report on properties across
+Canadian cities.
 """
 
-import asyncio
-import json
-import time
-from typing import Annotated, Optional
+from typing import Any
 
 import httpx
-
 from mcp.server.fastmcp import FastMCP, Context
-from pydantic import Field
 from clevertech_mcp.client import CleverTechClient
 from clevertech_mcp.rate_limit import LocalRateLimiter
-from clevertech_mcp.auth import _get_user_api_key, get_upstream_key, is_authenticated, _extract_client_ip
-from clevertech_mcp.schema_hints import CITY_SLUG, ROLL_NUMBER
-
-_PROPERTY_REPORT_DESCRIPTION = (
-    "Fetch a consolidated, human-readable property dossier for one assessment roll: "
-    "core assessment fields, building permits linked to the address (up to 10 shown), "
-    "zoning summary, and DLS coordinates when on file. "
-    "Requires city slug + roll_number (from property_search, property_top, or "
-    "reverse_geocode). "
-    "Prefer property_by_roll when you only need raw assessment JSON for one roll; "
-    "prefer property_search when you have a street address but not the roll yet. "
-    "Requires CLEVERTECH_API_KEY (50 free API calls/day after sign-in)."
+from clevertech_mcp.auth import (
+    _get_user_api_key,
+    get_upstream_key,
+    is_authenticated,
+    _extract_client_ip,
+)
+from clevertech_mcp.http_errors import tool_http_error
+from clevertech_mcp.params import (
+    canadian_gps_error,
+    clamp_limit,
+    split_ids,
 )
 
-_PROPERTY_BY_ROLL_DESCRIPTION = (
-    "Look up a single municipal property assessment record by roll number and return "
-    "the upstream JSON (values, land/building split, lot size, year built, DLS, etc.). "
-    "Faster and smaller than property_report when permits and zoning are not needed. "
-    "Use property_report for permits + zoning in one call; use property_search to "
-    "discover roll numbers from an address. Requires city slug + roll_number."
-)
 
-# Nominatim rate limit compliance — max 1 request/second
-_last_nominatim_time: float = 0.0
+def _rows(data: Any) -> list:
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        for key in ("results", "properties", "found", "items"):
+            rows = data.get(key)
+            if isinstance(rows, list):
+                return rows
+    return []
+
+
+def _format_property_row(r: dict) -> list[str]:
+    lines = [
+        "",
+        "---",
+        f"Address: {r.get('address', 'N/A')}",
+        f"Roll: {r.get('roll_number', 'N/A')}",
+    ]
+    if r.get("assessed_value") is not None:
+        lines.append(f"Assessed Value: ${r['assessed_value']:,.0f}")
+    else:
+        lines.append("Assessed Value: N/A")
+    lines.append(f"Type: {r.get('property_type', 'N/A')}")
+    if r.get("dls"):
+        lines.append(f"DLS: {r['dls']}")
+    return lines
+
+
+def _format_stats(data: dict, *, title: str) -> str:
+    lines = [f"# {title}"]
+    for key, value in data.items():
+        if key == "_message":
+            continue
+        if isinstance(value, dict):
+            lines.append(f"{key}:")
+            for inner_key, inner_value in value.items():
+                lines.append(f"- {inner_key}: {inner_value}")
+        else:
+            lines.append(f"{key}: {value}")
+    if data.get("_message"):
+        lines.append(f"\n{data['_message']}")
+    return "\n".join(lines)
 
 
 def register_property_tools(
     mcp: FastMCP, client: CleverTechClient, config: dict, rate_limiter: LocalRateLimiter
 ) -> None:
-    """Register property search, by-roll, and report tools."""
+    """Register property search, nearby, stats, batch, by-roll, and report tools."""
 
     @mcp.tool(
         name="property_search",
         description=(
             "Search for properties by address across 13+ Canadian cities. "
             "Returns assessment data including value, lot size, year built, "
-            "and DLS coordinates. Supports sorting by assessed_value, address, "
-            "year_built, community, and value range filtering. "
-            "If no assessment results are found, falls back to Nominatim/OpenStreetMap "
-            "forward geocoding; if the address resolves to a real location, returns "
-            "a helpful message explaining why it may be missing from the assessment database "
-            "(e.g. tax-exempt, new development, unit in larger parcel) instead of a plain '0 of 0'."
+            "and DLS coordinates."
         ),
     )
     async def property_search(
-        city: Annotated[str, Field(description=CITY_SLUG)],
-        address: Annotated[
-            str,
-            Field(
-                description=(
-                    "Street address or fragment to match against the city's assessment "
-                    "database (partial matches supported). Use property_by_roll or "
-                    "property_report when you already have the roll number."
-                )
-            ),
-        ],
-        limit: Annotated[
-            int,
-            Field(
-                description="Maximum results to return (1–200, default 10).",
-                ge=1,
-                le=200,
-            ),
-        ] = 10,
-        offset: Annotated[
-            int,
-            Field(description="Pagination offset for subsequent pages (default 0).", ge=0),
-        ] = 0,
-        sort_by: Annotated[
-            Optional[str],
-            Field(
-                description=(
-                    "Optional sort column: assessed_value, address, year_built, "
-                    "community, or lot_size_sqft."
-                )
-            ),
-        ] = None,
-        order: Annotated[
-            str,
-            Field(description="Sort order when sort_by is set: 'asc' or 'desc' (default asc)."),
-        ] = "asc",
-        min_value: Annotated[
-            Optional[float],
-            Field(description="Optional filter: minimum assessed_value (CAD)."),
-        ] = None,
-        max_value: Annotated[
-            Optional[float],
-            Field(description="Optional filter: maximum assessed_value (CAD)."),
-        ] = None,
+        city: str,
+        address: str,
+        limit: int = 10,
+        offset: int = 0,
         ctx: Context = None,
     ) -> str:
-        """Search for properties by address."""
-        # Resolve user API key and rate limit anonymous users
+        """Search for properties by address.
+
+        Args:
+            city: City slug (calgary, toronto, vancouver, montreal, edmonton,
+                  etc.).
+            address: Street address to search (partial matches supported).
+            limit: Max results (1-200, default 10).
+            offset: Pagination offset.
+        """
         user_key = _get_user_api_key(ctx)
         upstream_key = get_upstream_key(user_key, config.get("api_key"))
         if not is_authenticated(user_key):
             source_ip = _extract_client_ip(ctx)
             rate_limiter.check_or_raise(source_ip)
 
-        params = {
-            "address": address,
-            "limit": min(limit, 200),
-            "offset": offset,
-        }
-        if sort_by:
-            params["sort_by"] = sort_by
-        if order:
-            params["order"] = order
-        if min_value is not None:
-            params["min_value"] = min_value
-        if max_value is not None:
-            params["max_value"] = max_value
-
         data = await client.get(
             f"/api/{city}/property/search",
-            params=params,
+            params={
+                "address": address,
+                "limit": min(limit, 200),
+                "offset": offset,
+            },
             api_key=upstream_key,
         )
 
@@ -138,89 +117,184 @@ def register_property_tools(
         total = data.get("total", 0)
         message = data.get("_message", "")
 
-        if len(results) == 0:
-            # Respect Nominatim's 1 request/second policy
-            global _last_nominatim_time
-            _now = time.monotonic()
-            _elapsed = _now - _last_nominatim_time
-            if _elapsed < 1.0:
-                await asyncio.sleep(1.0 - _elapsed)
-            try:
-                async with httpx.AsyncClient() as nom_client:
-                    geo_resp = await nom_client.get(
-                        "https://nominatim.openstreetmap.org/search",
-                        params={
-                            "q": f"{address} {city} Canada",
-                            "format": "jsonv2",
-                            "limit": 1,
-                        },
-                        headers={"User-Agent": "CleverTech-MCP/1.0"},
-                        timeout=10.0,
-                    )
-                    geo_resp.raise_for_status()
-                    geo_results = geo_resp.json()
-                    _last_nominatim_time = time.monotonic()
-                    if geo_results and len(geo_results) > 0:
-                        geo = geo_results[0]
-                        lat = geo.get("lat", "?")
-                        lon = geo.get("lon", "?")
-                        fallback_msg = (
-                            f"No assessment data found for '{address}' in {city}.\n\n"
-                            f"However, the address was found on OpenStreetMap at {lat}, {lon} — it likely exists as a real location but is not in the municipal property assessment database. This is common for:\n"
-                            "- Tax-exempt properties (hospitals, schools, churches, government buildings)\n"
-                            "- Unit-level addresses within larger commercial parcels (shopping centres, plazas)\n"
-                            "- New developments not yet added to the assessment roll\n"
-                            "- Non-taxable municipal facilities (libraries, rec centres, parks)\n\n"
-                            "Try searching a nearby street number or the parent property."
-                        )
-                        if message:
-                            fallback_msg += f"\n\n{message}"
-                        return fallback_msg
-            except (httpx.RequestError, httpx.TimeoutException, httpx.HTTPStatusError, json.JSONDecodeError, IndexError, TypeError):
-                # Nominatim failed or timed out — fall back to original empty result message
-                pass
-
         lines: list[str] = [f"Found {len(results)} of {total} properties"]
         if message:
             lines.append(f"\n{message}")
-
         for r in results:
-            lines.extend(
-                [
-                    "",
-                    "---",
-                    f"Address: {r.get('address', 'N/A')}",
-                    f"Roll: {r.get('roll_number', 'N/A')}",
-                ]
-            )
-            if r.get("assessed_value") is not None:
-                lines.append(f"Assessed Value: ${r['assessed_value']:,.0f}")
-            else:
-                lines.append("Assessed Value: N/A")
-            lines.append(f"Type: {r.get('property_type', 'N/A')}")
-            if r.get("dls"):
-                lines.append(f"DLS: {r['dls']}")
-
+            lines.extend(_format_property_row(r))
         return "\n".join(lines)
 
     @mcp.tool(
-        name="property_report",
-        description=_PROPERTY_REPORT_DESCRIPTION,
+        name="property_nearby",
+        description=(
+            "Find properties near a GPS point. Lat/lon must be within Canadian "
+            "bounds (lat 41–84, lon −142 to −52). Limit is clamped 1–100 "
+            "(v1 by-gps rejects above 100). Optional radius_m (1–5000, "
+            "default 100)."
+        ),
     )
-    async def property_report(
-        city: Annotated[str, Field(description=CITY_SLUG)],
-        roll_number: Annotated[str, Field(description=ROLL_NUMBER)],
+    async def property_nearby(
+        city: str,
+        lat: float = None,
+        lon: float = None,
+        limit: int = 20,
+        radius_m: int = 100,
         ctx: Context = None,
     ) -> str:
-        """Get a consolidated property report."""
-        # Resolve user API key and rate limit anonymous users
+        """Get properties near a GPS point.
+
+        Args:
+            city: City slug.
+            lat: Latitude (Canadian bounds).
+            lon: Longitude (Canadian bounds).
+            limit: Max results (1-100, default 20).
+            radius_m: Search radius in metres (1-5000, default 100).
+        """
+        gps_error = canadian_gps_error(lat, lon)
+        if gps_error:
+            return gps_error
+
         user_key = _get_user_api_key(ctx)
         upstream_key = get_upstream_key(user_key, config.get("api_key"))
         if not is_authenticated(user_key):
             source_ip = _extract_client_ip(ctx)
             rate_limiter.check_or_raise(source_ip)
 
-        data = await client.get(f"/api/{city}/property/report/{roll_number}", api_key=upstream_key)
+        try:
+            data = await client.get(
+                f"/api/{city}/property/by-gps",
+                params={
+                    "lat": lat,
+                    "lon": lon,
+                    "limit": clamp_limit(limit, maximum=100),
+                    "radius_m": clamp_limit(radius_m, maximum=5000),
+                },
+                api_key=upstream_key,
+            )
+        except (httpx.HTTPStatusError, httpx.TimeoutException) as exc:
+            return tool_http_error(
+                exc,
+                not_found=f"No properties found near GPS {lat}, {lon} in {city}.",
+            )
+
+        rows = _rows(data)
+        total = data.get("total", len(rows)) if isinstance(data, dict) else len(rows)
+        lines = [f"Found {len(rows)} of {total} properties"]
+        for r in rows:
+            if isinstance(r, dict):
+                lines.extend(_format_property_row(r))
+        if isinstance(data, dict) and data.get("_message"):
+            lines.append(f"\n{data['_message']}")
+        return "\n".join(lines)
+
+    @mcp.tool(
+        name="property_stats",
+        description="Get aggregate property assessment statistics for a city.",
+    )
+    async def property_stats(city: str, ctx: Context = None) -> str:
+        """Get property stats for a city.
+
+        Args:
+            city: City slug.
+        """
+        user_key = _get_user_api_key(ctx)
+        upstream_key = get_upstream_key(user_key, config.get("api_key"))
+        if not is_authenticated(user_key):
+            source_ip = _extract_client_ip(ctx)
+            rate_limiter.check_or_raise(source_ip)
+
+        try:
+            data = await client.get(
+                f"/api/{city}/property/stats", api_key=upstream_key
+            )
+        except (httpx.HTTPStatusError, httpx.TimeoutException) as exc:
+            return tool_http_error(
+                exc,
+                not_found=f"No property stats are available for {city}.",
+            )
+
+        if not isinstance(data, dict):
+            return str(data)
+        return _format_stats(data, title=f"Property stats ({city})")
+
+    @mcp.tool(
+        name="property_batch",
+        description=(
+            "Look up several properties by roll number in one call. Pass "
+            "`roll_numbers` as a comma-separated string or a list."
+        ),
+    )
+    async def property_batch(
+        city: str,
+        roll_numbers: str | list | None = None,
+        ctx: Context = None,
+    ) -> str:
+        """Batch property lookup by roll number.
+
+        Args:
+            city: City slug.
+            roll_numbers: Comma-separated rolls or a list of roll numbers.
+        """
+        ids = split_ids(roll_numbers)
+        if not ids:
+            return "Error: provide one or more roll_numbers."
+
+        user_key = _get_user_api_key(ctx)
+        upstream_key = get_upstream_key(user_key, config.get("api_key"))
+        if not is_authenticated(user_key):
+            source_ip = _extract_client_ip(ctx)
+            rate_limiter.check_or_raise(source_ip)
+
+        try:
+            data = await client.post(
+                f"/api/{city}/property/batch",
+                json={"ids": ids},
+                api_key=upstream_key,
+            )
+        except (httpx.HTTPStatusError, httpx.TimeoutException) as exc:
+            return tool_http_error(
+                exc,
+                not_found=f"No properties found for the given rolls in {city}.",
+            )
+
+        rows = _rows(data)
+        not_found = data.get("not_found", []) if isinstance(data, dict) else []
+        lines = [f"Found {len(rows)} properties"]
+        if not_found:
+            lines.append(f"Not found: {', '.join(str(n) for n in not_found)}")
+        for r in rows:
+            if isinstance(r, dict):
+                lines.extend(_format_property_row(r))
+        if isinstance(data, dict) and data.get("_message"):
+            lines.append(f"\n{data['_message']}")
+        return "\n".join(lines)
+
+    @mcp.tool(
+        name="property_report",
+        description=(
+            "Get a consolidated property report — assessment data, building "
+            "permits at this address, zoning information, and DLS coordinates "
+            "in a single response."
+        ),
+    )
+    async def property_report(city: str, roll_number: str, ctx: Context = None) -> str:
+        """Get a consolidated property report.
+
+        Args:
+            city: City slug.
+            roll_number: Property roll number.
+        """
+        user_key = _get_user_api_key(ctx)
+        upstream_key = get_upstream_key(user_key, config.get("api_key"))
+        if not is_authenticated(user_key):
+            source_ip = _extract_client_ip(ctx)
+            rate_limiter.check_or_raise(source_ip)
+
+        data = await client.get(
+            f"/api/{city}/property/report",
+            params={"roll_number": roll_number},
+            api_key=upstream_key,
+        )
 
         message = data.get("_message", "")
         lines: list[str] = [
@@ -254,19 +328,14 @@ def register_property_tools(
         if permits:
             lines.append(f"\n## Building Permits ({len(permits)})")
             for p in permits[:10]:
-                # Upstream uses permit_id + estimated_value; keep legacy aliases
-                permit_id = p.get("permit_id") or p.get("permit_number") or "N/A"
-                raw_value = (
-                    p.get("estimated_value")
-                    if p.get("estimated_value") is not None
-                    else p.get("job_value")
+                job_value = (
+                    f"${p.get('job_value', 0):,.0f}"
+                    if p.get("job_value") is not None
+                    else "N/A"
                 )
-                job_value = f"${raw_value:,.0f}" if raw_value is not None else "N/A"
-                status = p.get("status")
-                status_bit = f" [{status}]" if status else ""
                 lines.append(
-                    f"- {permit_id}: "
-                    f"{p.get('permit_type', 'N/A')} — {job_value}{status_bit}"
+                    f"- {p.get('permit_number', 'N/A')}: "
+                    f"{p.get('permit_type', 'N/A')} — {job_value}"
                 )
 
         zoning = data.get("zoning")
@@ -287,51 +356,17 @@ def register_property_tools(
 
     @mcp.tool(
         name="property_by_roll",
-        description=_PROPERTY_BY_ROLL_DESCRIPTION,
-    )
-    async def property_by_roll(
-        city: Annotated[str, Field(description=CITY_SLUG)],
-        roll_number: Annotated[str, Field(description=ROLL_NUMBER)],
-        ctx: Context = None,
-    ) -> str:
-        """Get a property by its roll number."""
-        # Resolve user API key and rate limit anonymous users
-        user_key = _get_user_api_key(ctx)
-        upstream_key = get_upstream_key(user_key, config.get("api_key"))
-        if not is_authenticated(user_key):
-            source_ip = _extract_client_ip(ctx)
-            rate_limiter.check_or_raise(source_ip)
-
-        data = await client.get(f"/api/{city}/property/by-roll/{roll_number}", api_key=upstream_key)
-        return json.dumps(data, indent=2, default=str)
-
-    @mcp.tool(
-        name="property_top",
         description=(
-            "Get the top-N properties in a city sorted by assessed value, "
-            "year built, or lot size. Perfect for finding the most expensive, "
-            "oldest, or largest properties. Returns full assessment details "
-            "for each result."
+            "Get a single property assessment record by its roll number. "
+            "Faster than search when you already know the roll number."
         ),
     )
-    async def property_top(
-        city: str,
-        n: int = 10,
-        sort_by: str = "assessed_value",
-        order: str = "desc",
-        min_value: float = None,
-        max_value: float = None,
-        ctx: Context = None,
-    ) -> str:
-        """Get top-N properties sorted by a numeric column.
+    async def property_by_roll(city: str, roll_number: str, ctx: Context = None) -> str:
+        """Get a property by its roll number.
 
         Args:
             city: City slug.
-            n: Number of results (1-100, default 10).
-            sort_by: Column to sort by: assessed_value, year_built, lot_size_sqft.
-            order: Sort order: asc or desc (default desc for top-N).
-            min_value: Optional minimum assessed value filter.
-            max_value: Optional maximum assessed value filter.
+            roll_number: Property roll number.
         """
         user_key = _get_user_api_key(ctx)
         upstream_key = get_upstream_key(user_key, config.get("api_key"))
@@ -339,43 +374,13 @@ def register_property_tools(
             source_ip = _extract_client_ip(ctx)
             rate_limiter.check_or_raise(source_ip)
 
-        params = {
-            "n": min(n, 100),
-            "sort_by": sort_by,
-            "order": order,
-        }
-        if min_value is not None:
-            params["min_value"] = min_value
-        if max_value is not None:
-            params["max_value"] = max_value
-
         data = await client.get(
-            f"/api/{city}/property/top",
-            params=params,
-            api_key=upstream_key,
+            f"/api/{city}/property/by-roll/{roll_number}", api_key=upstream_key
         )
-
-        results = data.get("results", [])
-        lines: list[str] = [
-            f"Top {len(results)} properties in {city.title()} "
-            f"(sorted by {sort_by} {order}):"
-        ]
-
-        for i, r in enumerate(results, 1):
-            lines.extend([
-                "",
-                f"## {i}. {r.get('address', 'N/A')}",
-                f"- Roll: {r.get('roll_number', 'N/A')}",
-            ])
-            if r.get("assessed_value") is not None:
-                lines.append(f"- Assessed Value: ${r['assessed_value']:,.0f}")
-            if r.get("year_built"):
-                lines.append(f"- Year Built: {r['year_built']}")
-            if r.get("lot_size_sqm"):
-                lines.append(f"- Lot Size: {r['lot_size_sqm']:,} m²")
-            if r.get("property_type"):
-                lines.append(f"- Type: {r['property_type']}")
-            if r.get("dls"):
-                lines.append(f"- DLS: {r['dls']}")
-
+        if not isinstance(data, dict):
+            return str(data)
+        lines = ["# Property"]
+        lines.extend(_format_property_row(data))
+        if data.get("_message"):
+            lines.append(f"\n{data['_message']}")
         return "\n".join(lines)

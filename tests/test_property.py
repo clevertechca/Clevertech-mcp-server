@@ -4,9 +4,8 @@ Covers property_search, property_report, and property_by_roll —
 including pagination, empty results, and minimal/missing data handling.
 """
 
-import json
 import pytest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 from clevertech_mcp.tools.property import register_property_tools
 
@@ -17,9 +16,9 @@ from tests.conftest import register_and_get_tool
 # Helpers
 # ---------------------------------------------------------------------------
 
-async def _get_tool(client, config, name: str):
+async def _get_tool(client, config, name: str, mock_rate_limiter=None):
     return register_and_get_tool(
-        register_property_tools, client, config, name
+        register_property_tools, client, config, name, mock_rate_limiter
     )
 
 
@@ -138,7 +137,9 @@ class TestPropertyReport:
         result = await tool(city="calgary", roll_number="1234567")
 
         mock_client.get.assert_called_once_with(
-            "/api/calgary/property/report/1234567", api_key=None
+            "/api/calgary/property/report",
+            params={"roll_number": "1234567"},
+            api_key=None,
         )
 
         # Header
@@ -196,7 +197,7 @@ class TestPropertyByRoll:
 
     @pytest.mark.asyncio
     async def test_property_by_roll_success(self, mock_client, mock_config, sample_property):
-        """By-roll lookup returns JSON-dumped property data."""
+        """By-roll lookup returns formatted property fields, not raw JSON."""
         mock_client.get = AsyncMock(return_value=sample_property)
         tool = await _get_tool(mock_client, mock_config, "property_by_roll")
 
@@ -205,17 +206,128 @@ class TestPropertyByRoll:
         mock_client.get.assert_called_once_with(
             "/api/calgary/property/by-roll/1234567", api_key=None
         )
-        # Result is JSON string
-        parsed = json.loads(result)
-        assert parsed["roll_number"] == "1234567"
-        assert parsed["address"] == "123 Main St"
+        assert "Address: 123 Main St" in result
+        assert "Roll: 1234567" in result
+        assert "Assessed Value: $500,000" in result
+        assert '"roll_number"' not in result
 
     @pytest.mark.asyncio
     async def test_property_by_roll_missing(self, mock_client, mock_config):
-        """Empty object returned — JSON dump still succeeds."""
         mock_client.get = AsyncMock(return_value={})
         tool = await _get_tool(mock_client, mock_config, "property_by_roll")
 
         result = await tool(city="calgary", roll_number="nonexistent")
 
-        assert result == "{}"
+        assert "# Property" in result
+        assert "Address: N/A" in result
+
+    @pytest.mark.asyncio
+    async def test_property_by_roll_omits_injected_pii(self, mock_client, mock_config):
+        mock_client.get = AsyncMock(
+            return_value={
+                "roll_number": "1234567",
+                "address": "123 Main St",
+                "owner": "Jane Doe",
+                "email": "jane@example.com",
+                "phone": "403-555-0100",
+                "sin": "123-456-789",
+            }
+        )
+        tool = await _get_tool(mock_client, mock_config, "property_by_roll")
+
+        result = await tool(city="calgary", roll_number="1234567")
+
+        assert "Jane Doe" not in result
+        assert "jane@example.com" not in result
+        assert "403-555-0100" not in result
+        assert "123-456-789" not in result
+
+
+class TestPropertyNearby:
+    @pytest.mark.asyncio
+    async def test_nearby_success(self, mock_client, mock_config, sample_property):
+        mock_client.get = AsyncMock(return_value={"results": [sample_property], "total": 1})
+        tool = await _get_tool(mock_client, mock_config, "property_nearby")
+
+        result = await tool(city="calgary", lat=51.045, lon=-114.072)
+
+        call_args = mock_client.get.call_args
+        assert call_args[0][0] == "/api/calgary/property/by-gps"
+        assert call_args[1]["params"]["lat"] == 51.045
+        assert call_args[1]["params"]["lon"] == -114.072
+        assert call_args[1]["params"]["limit"] == 20
+        assert call_args[1]["params"]["radius_m"] == 100
+        assert "Address: 123 Main St" in result
+        assert "Roll: 1234567" in result
+
+    @pytest.mark.asyncio
+    async def test_nearby_clamps_limit_to_100(
+        self, mock_client, mock_config, sample_property
+    ):
+        mock_client.get = AsyncMock(return_value={"results": [sample_property]})
+        tool = await _get_tool(mock_client, mock_config, "property_nearby")
+
+        await tool(city="calgary", lat=51.045, lon=-114.072, limit=200)
+
+        assert mock_client.get.call_args[1]["params"]["limit"] == 100
+
+    @pytest.mark.asyncio
+    async def test_nearby_rejects_out_of_bounds(self, mock_client, mock_config):
+        limiter = MagicMock()
+        mock_client.get = AsyncMock()
+        tool = await _get_tool(mock_client, mock_config, "property_nearby", limiter)
+
+        result = await tool(city="calgary", lat=0.0, lon=0.0)
+
+        limiter.check_or_raise.assert_not_called()
+        mock_client.get.assert_not_called()
+        assert "Canadian bounds" in result
+
+
+class TestPropertyStats:
+    @pytest.mark.asyncio
+    async def test_stats_success(self, mock_client, mock_config):
+        mock_client.get = AsyncMock(
+            return_value={"total_properties": 450000, "by_type": {"Residential": 400000}}
+        )
+        tool = await _get_tool(mock_client, mock_config, "property_stats")
+
+        result = await tool(city="calgary")
+
+        mock_client.get.assert_called_once_with(
+            "/api/calgary/property/stats", api_key=None
+        )
+        assert "total_properties: 450000" in result
+        assert "- Residential: 400000" in result
+
+
+class TestPropertyBatch:
+    @pytest.mark.asyncio
+    async def test_batch_success(self, mock_client, mock_config, sample_property):
+        mock_client.post = AsyncMock(
+            return_value={"found": [sample_property], "not_found": ["999"]}
+        )
+        tool = await _get_tool(mock_client, mock_config, "property_batch")
+
+        result = await tool(city="calgary", roll_numbers="1234567, 999")
+
+        mock_client.post.assert_called_once()
+        assert mock_client.post.call_args[0][0] == "/api/calgary/property/batch"
+        assert mock_client.post.call_args[1]["json"] == {
+            "ids": ["1234567", "999"]
+        }
+        assert "Found 1 properties" in result
+        assert "Not found: 999" in result
+        assert "Address: 123 Main St" in result
+
+    @pytest.mark.asyncio
+    async def test_batch_requires_rolls(self, mock_client, mock_config):
+        limiter = MagicMock()
+        mock_client.post = AsyncMock()
+        tool = await _get_tool(mock_client, mock_config, "property_batch", limiter)
+
+        result = await tool(city="calgary", roll_numbers="  ")
+
+        limiter.check_or_raise.assert_not_called()
+        mock_client.post.assert_not_called()
+        assert "roll_numbers" in result

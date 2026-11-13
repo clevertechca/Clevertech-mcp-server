@@ -49,23 +49,11 @@ def register_meta_tools(
         for city in cities:
             name = city.get("name", city.get("city", "Unknown"))
             slug = city.get("slug", city.get("city_slug", "?"))
-            # Upstream /api/cities uses total_properties + api_types
-            props = city.get(
-                "total_properties",
-                city.get("property_count", city.get("count", "?")),
-            )
-            services = (
-                city.get("api_types")
-                or city.get("services")
-                or city.get("capabilities")
-                or []
-            )
-            province = city.get("province")
+            props = city.get("property_count", city.get("count", "?"))
+            services = city.get("services", city.get("capabilities", []))
 
             lines.append(f"## {name}")
             lines.append(f"- Slug: {slug}")
-            if province:
-                lines.append(f"- Province: {province}")
             if isinstance(props, int):
                 lines.append(f"- Properties: {props:,}")
             else:

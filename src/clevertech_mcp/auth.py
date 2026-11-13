@@ -12,10 +12,7 @@ scope.  In stdio mode (no HTTP request) the module falls back to the
 
 import os
 import contextvars
-from typing import Optional, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    pass
+from typing import Optional
 
 # ContextVar bridge for SSE transport.
 # Set by Starlette middleware on the initial SSE connection request.

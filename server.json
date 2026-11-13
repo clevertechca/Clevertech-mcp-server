@@ -2,17 +2,18 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "ca.clevertech/clevertech-mcp-server",
   "title": "CleverTech",
-  "description": "Canadian gov data for AI agents: property, permits, zoning, census, registry, DLS. 50 free/day.",
+  "description": "Canadian gov data for AI agents: census, safety, telecom, business registry, location/DLS, property, zoning, permits. 41 tools. Free: 50 calls/day, no card.",
+  "websiteUrl": "https://clevertech.ca",
   "repository": {
     "url": "https://github.com/clevertechca/Clevertech-mcp-server",
     "source": "github"
   },
-  "version": "0.3.3",
+  "version": "0.4.0",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "clevertech-mcp-server",
-      "version": "0.3.3",
+      "version": "0.4.0",
       "transport": {
         "type": "stdio"
       },

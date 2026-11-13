@@ -47,7 +47,7 @@ LANDING_PAGE_HTML = """\
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CleverTech MCP Server — Canadian Government Data APIs</title>
-<meta name="description" content="A Model Context Protocol (MCP) server that gives AI agents access to Canadian property assessments, building permits, zoning data, business registry, DLS conversion, and geocoding across 13+ cities.">
+<meta name="description" content="CleverTech MCP server for AI agents — Canadian government data: property, permits, zoning, business registry, and GPS ↔ DLS conversion. Free tier available.">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html { font-size: 16px; }
@@ -160,12 +160,12 @@ LANDING_PAGE_HTML = """\
 <body>
 <header>
   <h1>CleverTech MCP Server</h1>
-  <p class="hero">Canadian Government Data APIs for AI Agents</p>
+  <p class="hero">CleverTech MCP Server for AI Agents</p>
   <p class="desc">
-    A <strong>Model Context Protocol (MCP)</strong> server that gives AI assistants
+    An <strong>MCP-first</strong> CleverTech platform server that gives AI assistants
     (Claude, VS Code Copilot, Cursor, etc.) direct access to Canadian property
-    assessments, building permits, zoning data, federal business registry,
-    Dominion Land Survey (DLS) conversion, and geocoding &mdash; across 13+ cities.
+    assessments, building permits, zoning data, census profiles, public safety, federal business registry,
+    and GPS &harr; DLS conversion &mdash; across 20+ cities.
   </p>
   <div class="tags">
     <span>#canada</span>
@@ -235,7 +235,7 @@ LANDING_PAGE_HTML = """\
 
   <!-- ── AVAILABLE TOOLS ──────────────────────────────────── -->
   <section>
-    <h2>Available Tools <span style="font-weight:400;font-size:0.85rem;color:#6c8aaa;">(11 tools)</span></h2>
+    <h2>Available Tools <span style="font-weight:400;font-size:0.85rem;color:#6c8aaa;">(41 tools)</span></h2>
     <div class="tools">
       <div class="tool-card">
         <div class="tool-name">dls_convert</div>
@@ -261,7 +261,7 @@ LANDING_PAGE_HTML = """\
 
       <div class="tool-card">
         <div class="tool-name">property_search</div>
-        <div class="tool-desc">Search property assessments by address across 13+ Canadian cities. Returns assessed value, lot size, year built, and DLS coordinates. Falls back to OpenStreetMap for locations not in the assessment database (tax-exempt properties, new developments, unit-level addresses).</div>
+        <div class="tool-desc">Search property assessments by address across 13+ Canadian cities. Returns assessed value, lot size, year built, and DLS coordinates.</div>
         <div class="tool-params">
           <code>city</code> <span>string (required) — city slug</span><br>
           <code>address</code> <span>string (required) — partial address match</span><br>
@@ -289,6 +289,35 @@ LANDING_PAGE_HTML = """\
       </div>
 
       <div class="tool-card">
+        <div class="tool-name">property_nearby</div>
+        <div class="tool-desc">Find properties near a GPS point. Lat/lon must be within Canadian bounds.</div>
+        <div class="tool-params">
+          <code>city</code> <span>string (required)</span><br>
+          <code>lat</code> <span>float (required)</span><br>
+          <code>lon</code> <span>float (required)</span><br>
+          <code>limit</code> <span>int (optional, default 20, min 1, max 100)</span><br>
+          <code>radius_m</code> <span>int (optional, default 100, min 1, max 5000)</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">property_stats</div>
+        <div class="tool-desc">Aggregate property assessment statistics for a city.</div>
+        <div class="tool-params">
+          <code>city</code> <span>string (required)</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">property_batch</div>
+        <div class="tool-desc">Look up several properties by roll number in one call.</div>
+        <div class="tool-params">
+          <code>city</code> <span>string (required)</span><br>
+          <code>roll_numbers</code> <span>string or list (required) — comma-separated rolls</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
         <div class="tool-name">building_permit_search</div>
         <div class="tool-desc">Search building permits by address, contractor, applicant, or permit number. Returns permit type, value, status, and dates.</div>
         <div class="tool-params">
@@ -309,6 +338,45 @@ LANDING_PAGE_HTML = """\
       </div>
 
       <div class="tool-card">
+        <div class="tool-name">building_permit_nearby</div>
+        <div class="tool-desc">Find building permits near a GPS point.</div>
+        <div class="tool-params">
+          <code>city</code> <span>string (required)</span><br>
+          <code>lat</code> <span>float (required)</span><br>
+          <code>lon</code> <span>float (required)</span><br>
+          <code>limit</code> <span>int (optional, default 20, min 1, max 200)</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">building_permit_get</div>
+        <div class="tool-desc">Get one building permit by id.</div>
+        <div class="tool-params">
+          <code>city</code> <span>string (required)</span><br>
+          <code>permit_id</code> <span>string (preferred)</span><br>
+          <code>q</code> <span>string — alias for permit_id</span><br>
+          <code>query</code> <span>string — alias for permit_id / q</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">building_permit_stats</div>
+        <div class="tool-desc">Aggregate building-permit statistics for a city.</div>
+        <div class="tool-params">
+          <code>city</code> <span>string (required)</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">building_permit_batch</div>
+        <div class="tool-desc">Look up several building permits by number in one call.</div>
+        <div class="tool-params">
+          <code>city</code> <span>string (required)</span><br>
+          <code>permit_numbers</code> <span>string or list (required)</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
         <div class="tool-name">zoning_lookup</div>
         <div class="tool-desc">Look up zoning district information for a GPS point or address. Returns zone code, description, district name, and land use.</div>
         <div class="tool-params">
@@ -320,14 +388,247 @@ LANDING_PAGE_HTML = """\
       </div>
 
       <div class="tool-card">
+        <div class="tool-name">zoning_codes</div>
+        <div class="tool-desc">List zoning district codes available for a city.</div>
+        <div class="tool-params">
+          <code>city</code> <span>string (required)</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">zoning_by_code</div>
+        <div class="tool-desc">Look up zoning districts by code via GET /zoning/by-code?code=. Case- and accent-insensitive; slashes work (e.g. CR20-C20/R20).</div>
+        <div class="tool-params">
+          <code>city</code> <span>string (required)</span><br>
+          <code>code</code> <span>string (preferred)</span><br>
+          <code>q</code> <span>string — alias for code</span><br>
+          <code>query</code> <span>string — alias for code / q</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">census_lookup_by_gps</div>
+        <div class="tool-desc">Look up the Statistics Canada census profile at a GPS point. Returns DA id, year, population, median age, and income.</div>
+        <div class="tool-params">
+          <code>city</code> <span>string (required) — city slug</span><br>
+          <code>lat</code> <span>float (required)</span><br>
+          <code>lon</code> <span>float (required)</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">census_profile</div>
+        <div class="tool-desc">Get a census profile by dissemination-area (DA) id, or a CSD-style id such as CSD_4806016.</div>
+        <div class="tool-params">
+          <code>city</code> <span>string (required)</span><br>
+          <code>da_id</code> <span>string — DA or CSD id (preferred; required unless q or query is set)</span><br>
+          <code>q</code> <span>string — alias for da_id. Ignored when da_id is also provided.</span><br>
+          <code>query</code> <span>string — alias for da_id / q.</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">census_stats</div>
+        <div class="tool-desc">Aggregate census statistics for a city: profile count, census years, and counts by geography type.</div>
+        <div class="tool-params">
+          <code>city</code> <span>string (required)</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">census_lookup_by_dls</div>
+        <div class="tool-desc">Look up a census profile by DLS legal land description. Coverage is thin; a miss returns a clear not-found message.</div>
+        <div class="tool-params">
+          <code>city</code> <span>string (required)</span><br>
+          <code>dls</code> <span>string — DLS string (preferred; required unless q or query is set)</span><br>
+          <code>q</code> <span>string — alias for dls. Ignored when dls is also provided.</span><br>
+          <code>query</code> <span>string — alias for dls / q.</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">safety_nearby</div>
+        <div class="tool-desc">Look up public-safety incidents near a GPS point. Returns involved-person rows with category, injury, and neighbourhood.</div>
+        <div class="tool-params">
+          <code>city</code> <span>string (required) — city slug (e.g. toronto)</span><br>
+          <code>lat</code> <span>float (required)</span><br>
+          <code>lon</code> <span>float (required)</span><br>
+          <code>limit</code> <span>int (optional, default 20, max 200)</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">safety_search</div>
+        <div class="tool-desc">Search involved-person public-safety rows for a city.</div>
+        <div class="tool-params">
+          <code>city</code> <span>string (required)</span><br>
+          <code>q</code> <span>string — keyword (preferred; required unless query is set). Wins if both q and query are given.</span><br>
+          <code>query</code> <span>string — alias for q.</span><br>
+          <code>limit</code> <span>int (optional, default 20, max 200)</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">safety_stats</div>
+        <div class="tool-desc">Aggregate public-safety statistics for a city: total rows and counts by injury.</div>
+        <div class="tool-params">
+          <code>city</code> <span>string (required)</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">safety_by_id</div>
+        <div class="tool-desc">Get one public-safety source row by id. Colons in the id are URL-encoded.</div>
+        <div class="tool-params">
+          <code>city</code> <span>string (required)</span><br>
+          <code>source_record_id</code> <span>string — e.g. toronto_shootings:GO-2004195761 (preferred)</span><br>
+          <code>q</code> <span>string — alias for source_record_id. Ignored when source_record_id is also provided.</span><br>
+          <code>query</code> <span>string — alias for source_record_id / q. Used when both source_record_id and q are omitted, empty, or whitespace-only.</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">safety_summary</div>
+        <div class="tool-desc">National / area safety summary. Currently times out on the live API; the tool returns a clear error instead of a stack trace.</div>
+        <div class="tool-params">
+          <code>category</code> <span>string (optional)</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">telecom_towers_nearby</div>
+        <div class="tool-desc">Find ISED-licensed telecom towers near a GPS point. Default limit is 1 because nearby can be heavy. Optional radius_km (default 5, clamped 0.1–100).</div>
+        <div class="tool-params">
+          <code>lat</code> <span>float (required) — Canadian bounds</span><br>
+          <code>lon</code> <span>float (required) — Canadian bounds</span><br>
+          <code>limit</code> <span>int (optional, default 1, min 1, max 200)</span><br>
+          <code>radius_km</code> <span>float (optional, default 5, min 0.1, max 100)</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">telecom_towers_search</div>
+        <div class="tool-desc">Search ISED telecom towers. The search term is sent as the API carrier filter.</div>
+        <div class="tool-params">
+          <code>q</code> <span>string — carrier or keyword (preferred)</span><br>
+          <code>query</code> <span>string — alias for q</span><br>
+          <code>limit</code> <span>int (optional, default 20, min 1, max 200)</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">telecom_stats</div>
+        <div class="tool-desc">National ISED telecom-tower statistics: totals, carriers, technologies, height range.</div>
+        <div class="tool-params">
+          <em style="color:#6c8aaa;font-size:0.82rem;">No parameters required</em>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">microwave_nearby</div>
+        <div class="tool-desc">Find ISED microwave links near a GPS point. Default radius is 2 km (clamped 1–25 km).</div>
+        <div class="tool-params">
+          <code>lat</code> <span>float (required)</span><br>
+          <code>lon</code> <span>float (required)</span><br>
+          <code>radius_km</code> <span>float (optional, default 2, min 1, max 25)</span><br>
+          <code>limit</code> <span>int (optional, default 50, min 1, max 200)</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">microwave_search</div>
+        <div class="tool-desc">Search ISED microwave links. The search term is sent as the API licensee filter.</div>
+        <div class="tool-params">
+          <code>q</code> <span>string — licensee or keyword (preferred)</span><br>
+          <code>query</code> <span>string — alias for q</span><br>
+          <code>limit</code> <span>int (optional, default 20, min 1, max 200)</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">microwave_stats</div>
+        <div class="tool-desc">National ISED microwave-link network statistics.</div>
+        <div class="tool-params">
+          <em style="color:#6c8aaa;font-size:0.82rem;">No parameters required</em>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">microwave_by_authorization</div>
+        <div class="tool-desc">Get one ISED microwave authorization by number.</div>
+        <div class="tool-params">
+          <code>authorization_number</code> <span>string (preferred)</span><br>
+          <code>q</code> <span>string — alias for authorization_number</span><br>
+          <code>query</code> <span>string — alias for authorization_number / q</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
         <div class="tool-name">business_registry_search</div>
         <div class="tool-desc">Search the Canadian federal corporations registry by name, province, city, status, or industry act.</div>
         <div class="tool-params">
-          <code>q</code> <span>string (required) — corporation name or keyword</span><br>
+          <code>q</code> <span>string — corporation name or keyword (preferred; required unless query is set). Wins if both q and query are given.</span><br>
+          <code>query</code> <span>string — alias for q. Ignored when q is also provided.</span><br>
           <code>province</code> <span>string (optional) — e.g. AB, BC, ON, QC</span><br>
           <code>city</code> <span>string (optional)</span><br>
           <code>status</code> <span>string (optional) — Active, Dissolved</span><br>
           <code>limit</code> <span>int (optional, default 25, max 100)</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">business_registry_get</div>
+        <div class="tool-desc">Get one Canadian federal corporation by id.</div>
+        <div class="tool-params">
+          <code>corporation_id</code> <span>string (preferred)</span><br>
+          <code>q</code> <span>string — alias for corporation_id</span><br>
+          <code>query</code> <span>string — alias for corporation_id / q</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">business_registry_advanced</div>
+        <div class="tool-desc">Faceted search of the federal corporations registry. Same q/query filters as search, plus act and corporation_type.</div>
+        <div class="tool-params">
+          <code>q</code> <span>string — corporation name or keyword (preferred)</span><br>
+          <code>query</code> <span>string — alias for q</span><br>
+          <code>province</code> <span>string (optional)</span><br>
+          <code>city</code> <span>string (optional)</span><br>
+          <code>status</code> <span>string (optional)</span><br>
+          <code>act</code> <span>string (optional)</span><br>
+          <code>corporation_type</code> <span>string (optional)</span><br>
+          <code>limit</code> <span>int (optional, default 50, min 1, max 500)</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">business_registry_stats</div>
+        <div class="tool-desc">Aggregate federal corporation statistics (totals and counts by province).</div>
+        <div class="tool-params">
+          <em style="color:#6c8aaa;font-size:0.82rem;">No parameters required</em>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">location_resolve</div>
+        <div class="tool-desc">Resolve a Canadian location from exactly one of: an address, a GPS pin, or a DLS legal land description. Combinations are rejected locally. Sends LocationRequest fields only — never q (the API rejects unknown fields with 422).</div>
+        <div class="tool-params">
+          <code>address</code> <span>string — street address (min 3 chars)</span><br>
+          <code>lat</code> <span>float — with lon (Canadian bounds)</span><br>
+          <code>lon</code> <span>float — with lat</span><br>
+          <code>dls</code> <span>string — DLS legal land description (min 5 chars)</span><br>
+          <code>city</code> <span>string (optional) — city slug</span>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-name">location_context</div>
+        <div class="tool-desc">Datasets near a GPS point. This call fans out and may consume several upstream API queries / rate-limit units.</div>
+        <div class="tool-params">
+          <code>lat</code> <span>float (required) — Canadian bounds</span><br>
+          <code>lon</code> <span>float (required) — Canadian bounds</span><br>
+          <code>city</code> <span>string (optional) — city slug</span><br>
+          <code>radius_m</code> <span>int (optional, default 1000, min 1, max 50000)</span>
         </div>
       </div>
 
@@ -358,7 +659,7 @@ LANDING_PAGE_HTML = """\
       ⚠️ <strong>Remote SSE endpoint decommissioned.</strong> The hosted SSE endpoint at
       <code>mcp.clevertech.ca</code> has been shut down as of June 2026.
       Use local stdio transport instead — it's faster, more reliable, and works
-      with every MCP client. No install required with <code>uvx</code>.
+      with every MCP client. No install required with <code>uvx</code> or <code>npx</code>.
     </div>
 
     <h3>Claude Desktop</h3>
@@ -403,9 +704,13 @@ LANDING_PAGE_HTML = """\
 }</pre>
     </div>
 
-    <h3>Direct CLI (uv)</h3>
+    <h3>Direct CLI (npm / uv)</h3>
     <div class="card">
-      <pre>uvx clevertech-mcp-server</pre>
+      <pre># npm (Node.js)
+npx @clevertech/mcp-server
+
+# uv / PyPI
+uvx clevertech-mcp-server</pre>
     </div>
 
     <h3>From Source</h3>
@@ -417,41 +722,49 @@ uv run clevertech-mcp-server</pre>
     </div>
   </section>
 
+  <!-- ── PRICING ──────────────────────────────────────────── -->
+  <section>
+    <h2>Pricing</h2>
+    <div class="card" style="font-size:0.88rem;">
+      <p>No signup required to start. <strong>Free tier</strong> included &mdash; see
+        <a href="https://clevertech.ca/pricing" style="color:#0dc5b8;">clevertech.ca/pricing</a>
+        for daily allowance. All prices in CAD.</p>
+      <table style="width:100%;margin-top:0.75rem;border-collapse:collapse;font-size:0.85rem;">
+        <tr style="border-bottom:1px solid #1a3550;">
+          <th style="text-align:left;padding:0.4rem 0;color:#0dc5b8;">Tier</th>
+          <th style="text-align:left;padding:0.4rem 0;color:#0dc5b8;">Price</th>
+        </tr>
+        <tr style="border-bottom:1px solid #1a3550;"><td style="padding:0.35rem 0;">Free</td><td>$0 — Try the API. No card. 50 calls / day</td></tr>
+        <tr style="border-bottom:1px solid #1a3550;"><td style="padding:0.35rem 0;">Developer</td><td>$149/mo (2,000 calls / day)</td></tr>
+        <tr style="border-bottom:1px solid #1a3550;"><td style="padding:0.35rem 0;">Team Pro</td><td>$499/mo (10,000 calls / day)</td></tr>
+        <tr style="border-bottom:1px solid #1a3550;"><td style="padding:0.35rem 0;">Enterprise</td><td>Custom</td></tr>
+        <tr><td style="padding:0.35rem 0;">Prepaid</td><td>$29 / $99 / $399 (2k / 10k / 50k calls)</td></tr>
+      </table>
+      <p style="margin-top:0.75rem;">
+        <a href="https://clevertech.ca/keys" style="color:#0dc5b8;">Get your API key &rarr;</a>
+      </p>
+    </div>
+  </section>
+
   <!-- ── AUTHENTICATION ───────────────────────────────────── -->
   <section>
-    <h2>Authentication &amp; Rate Limits</h2>
+    <h2>Authentication</h2>
     <div class="card">
       <p>
-        <span class="badge">50 requests/day</span>
-        Free tier — no API key required. Rate limited by source IP.
+        <span class="badge">Free tier</span>
+        No API key required. Rate limited by source IP.
       </p>
       <p style="margin-top:0.6rem;">
-        <span class="badge badge-green">Unlimited</span>
-        Two ways to authenticate with a CleverTech API key:
+        <span class="badge badge-green">API key</span>
+        Higher daily allowance and burst limits with a CleverTech API key &mdash; set
+        <code>CLEVERTECH_API_KEY</code>:
       </p>
-      <p style="margin-top:0.5rem;font-size:0.85rem;">
-        <strong>Option 1 — Environment variable (recommended):</strong>
-      </p>
-      <pre style="margin-top:0.3rem;">export CLEVERTECH_API_KEY=your_key_here
+      <pre style="margin-top:0.4rem;">export CLEVERTECH_API_KEY=your_key_here
 uvx clevertech-mcp-server</pre>
-      <p style="font-size:0.82rem;color:#8ea4be;margin-top:0.2rem;">
-        Set <code>CLEVERTECH_API_KEY</code> in your MCP client config
-        (Hermes, Claude Desktop, VS Code) or export it in your shell.
-        The server reads it at startup — no file to manage.
-      </p>
-      <p style="margin-top:0.6rem;font-size:0.85rem;">
-        <strong>Option 2 — Device login (get a new key):</strong>
-      </p>
-      <pre style="margin-top:0.3rem;">uvx clevertech-mcp-server --login</pre>
-      <p style="font-size:0.82rem;color:#8ea4be;margin-top:0.2rem;">
-        Opens a browser → sign in with Google → prints your API key with
-        instructions for setting the environment variable (RFC 8628 device flow).
-      </p>
       <p style="margin-top:0.75rem;font-size:0.85rem;">
         🔑 Get your API key at
-        <a href="https://clevertech.ca" style="color:#0dc5b8;">clevertech.ca</a>
-        (sign up for free). Authenticated users get burst rate limits of
-        60 requests/minute vs 10/minute for anonymous.
+        <a href="https://clevertech.ca/keys" style="color:#0dc5b8;">clevertech.ca/keys</a>.
+        See <a href="https://clevertech.ca/pricing" style="color:#0dc5b8;">pricing</a> for plan details.
       </p>
     </div>
   </section>
@@ -482,8 +795,8 @@ uvx clevertech-mcp-server</pre>
       </div>
       <p style="margin-top:0.6rem;font-size:0.82rem;color:#6c8aaa;">
         Use the <code>list_cities</code> tool to see capabilities per city.
-        <code>property</code>, <code>building</code>, <code>zoning</code>
-        coverage varies by city.
+        <code>property</code>, <code>building</code>, <code>zoning</code>,
+        <code>census</code>, <code>safety</code> coverage varies by city.
       </p>
     </div>
   </section>
@@ -504,9 +817,11 @@ uvx clevertech-mcp-server</pre>
     <h2>Links</h2>
     <div class="links">
       <a href="https://clevertech.ca">clevertech.ca</a>
+      <a href="https://clevertech.ca/pricing">Pricing</a>
       <a href="https://github.com/clevertechca/Clevertech-mcp-server">GitHub</a>
       <a href="https://clevertech.ca/docs">API Docs</a>
       <a href="https://pypi.org/project/clevertech-mcp-server/">PyPI</a>
+      <a href="https://www.npmjs.com/package/@clevertech/mcp-server">npm</a>
     </div>
   </section>
 
@@ -570,29 +885,15 @@ def main():
         default=None,
         help="CleverTech API key (overrides CLEVERTECH_API_KEY env var)",
     )
-    parser.add_argument(
-        "--login",
-        action="store_true",
-        default=False,
-        help="Authenticate via device authorization flow and print API key",
-    )
     args = parser.parse_args()
 
     config = load_config()
     config["host"] = args.host
     config["port"] = args.port
 
-    # Resolve API key priority: --api-key > CLEVERTECH_API_KEY env var > --login
+    # --api-key flag overrides env var for stdio mode
     if args.api_key:
         config["api_key"] = args.api_key
-        os.environ["CLEVERTECH_API_KEY"] = args.api_key
-    elif os.getenv("CLEVERTECH_API_KEY"):
-        config["api_key"] = os.getenv("CLEVERTECH_API_KEY")
-    elif args.login:
-        from clevertech_mcp.login import device_login
-        api_key = device_login(config.get("api_url", "https://clevertech.ca"))
-        config["api_key"] = api_key
-        os.environ["CLEVERTECH_API_KEY"] = api_key
 
     mcp = create_server(config)
 

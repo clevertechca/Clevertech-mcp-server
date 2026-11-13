@@ -44,6 +44,30 @@ def register_all_tools(
         pass
 
     try:
+        from clevertech_mcp.tools.census import register_census_tools
+        register_census_tools(mcp, client, config, rate_limiter)
+    except ImportError:
+        pass
+
+    try:
+        from clevertech_mcp.tools.safety import register_safety_tools
+        register_safety_tools(mcp, client, config, rate_limiter)
+    except ImportError:
+        pass
+
+    try:
+        from clevertech_mcp.tools.telecom import register_telecom_tools
+        register_telecom_tools(mcp, client, config, rate_limiter)
+    except ImportError:
+        pass
+
+    try:
+        from clevertech_mcp.tools.microwave import register_microwave_tools
+        register_microwave_tools(mcp, client, config, rate_limiter)
+    except ImportError:
+        pass
+
+    try:
         from clevertech_mcp.tools.business import register_business_tools
         register_business_tools(mcp, client, config, rate_limiter)
     except ImportError:
@@ -52,6 +76,12 @@ def register_all_tools(
     try:
         from clevertech_mcp.tools.geo import register_geo_tools
         register_geo_tools(mcp, client, config, rate_limiter)
+    except ImportError:
+        pass
+
+    try:
+        from clevertech_mcp.tools.location import register_location_tools
+        register_location_tools(mcp, client, config, rate_limiter)
     except ImportError:
         pass
 
