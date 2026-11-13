@@ -60,8 +60,8 @@ The **free tier** requires no API key: **Try the API. No card.** **50 calls / da
 | Tier | Daily allowance | Price |
 |------|-----------------|-------|
 | Free | 50 calls / day | $0 |
-| Developer | 2,000 calls / day | $149/mo (billed $1,428/yr) |
-| Team Pro | 10,000 calls / day | $499/mo (billed $4,788/yr) |
+| Developer | 2,000 calls / day | $149/mo |
+| Team Pro | 10,000 calls / day | $499/mo |
 | Enterprise | Custom | Contact sales |
 | Prepaid | n/a (never expire) | Starter 2,000 $29; Project 10,000 $99; Volume 50,000 $399 |
 

@@ -145,15 +145,15 @@ Use `list_cities` for live coverage. Cities span Alberta, BC, Ontario, Quebec, M
 
 ## Pricing (CAD)
 
-Source of truth: [clevertech.ca/pricing](https://clevertech.ca/pricing). Paid plans apply the same daily quotas to the REST API and the CleverTech MCP server (`uvx clevertech-mcp-server`). All prices are in CAD. Annual billing saves 20% versus monthly.
+Source of truth: [clevertech.ca/pricing](https://clevertech.ca/pricing). Paid plans apply the same daily quotas to the REST API and the CleverTech MCP server (`uvx clevertech-mcp-server`). All prices are in CAD.
 
 ### Subscriptions
 
 | Plan | Daily allowance | Price |
 |------|-----------------|-------|
 | **Free** | 50 calls / day | $0 — Try the API. No card. |
-| **Developer** | 2,000 calls / day | $149/mo (billed $1,428/yr) |
-| **Team Pro** | 10,000 calls / day | $499/mo (billed $4,788/yr) |
+| **Developer** | 2,000 calls / day | $149 CAD/mo |
+| **Team Pro** | 10,000 calls / day | $499 CAD/mo |
 | **Enterprise** | Custom allowance | Contact sales |
 
 **Free** (from the live pricing page): all 9 datasets, 100 results per query, 30 req/min, limited API key, web and MCP, DLS conversions (5 calls each), community support.

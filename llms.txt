@@ -70,8 +70,8 @@ All prices and daily allowances: https://clevertech.ca/pricing
 | Tier | Price |
 |------|-------|
 | Free | $0 — Try the API. No card. 50 calls / day (no API key required) |
-| Developer | $149/mo (2,000 calls / day; billed $1,428/yr) |
-| Team Pro | $499/mo (10,000 calls / day; billed $4,788/yr) |
+| Developer | $149/mo (2,000 calls / day) |
+| Team Pro | $499/mo (10,000 calls / day) |
 | Enterprise | Custom — contact via pricing page |
 | Prepaid | Starter 2,000 calls $29; Project 10,000 $99; Volume 50,000 $399 CAD (never expire) |
 
