@@ -4,8 +4,9 @@ Covers zoning_lookup by GPS, by address, missing parameters,
 and boundary data handling.
 """
 
+import httpx
 import pytest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 from clevertech_mcp.tools.zoning import register_zoning_tools
 
@@ -16,9 +17,9 @@ from tests.conftest import register_and_get_tool
 # Helpers
 # ---------------------------------------------------------------------------
 
-async def _get_tool(client, config, name: str):
+async def _get_tool(client, config, name: str, mock_rate_limiter=None):
     return register_and_get_tool(
-        register_zoning_tools, client, config, name
+        register_zoning_tools, client, config, name, mock_rate_limiter
     )
 
 
@@ -72,6 +73,17 @@ class TestZoningLookup:
         assert "lon" in result.lower()
         assert "address" in result.lower()
         mock_client.get.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_zoning_lookup_rejects_out_of_bounds(self, mock_client, mock_config):
+        limiter = MagicMock()
+        tool = await _get_tool(mock_client, mock_config, "zoning_lookup", limiter)
+
+        result = await tool(city="calgary", lat=0.0, lon=0.0)
+
+        limiter.check_or_raise.assert_not_called()
+        mock_client.get.assert_not_called()
+        assert "Canadian bounds" in result
 
     @pytest.mark.asyncio
     async def test_zoning_lookup_gps_takes_priority(self, mock_client, mock_config, sample_zoning):
@@ -131,3 +143,129 @@ class TestZoningLookup:
         result = await tool(city="calgary", lat=51.0, lon=-114.0)
 
         assert "Zoning data last updated 2024-01-01." in result
+
+    @pytest.mark.asyncio
+    async def test_zoning_lookup_404(self, mock_client, mock_config):
+        request = httpx.Request("GET", "https://clevertech.ca/api/calgary/zoning/by-gps")
+        response = httpx.Response(404, request=request, json={"detail": "Not Found"})
+        mock_client.get = AsyncMock(
+            side_effect=httpx.HTTPStatusError(
+                "Not Found", request=request, response=response
+            )
+        )
+        tool = await _get_tool(mock_client, mock_config, "zoning_lookup")
+
+        result = await tool(city="calgary", lat=51.0447, lon=-114.0719)
+
+        assert "No zoning district found" in result
+        assert "calgary" in result
+        assert "HTTPStatusError" not in result
+
+    @pytest.mark.asyncio
+    async def test_zoning_lookup_timeout(self, mock_client, mock_config):
+        mock_client.get = AsyncMock(side_effect=httpx.ReadTimeout("timed out"))
+        tool = await _get_tool(mock_client, mock_config, "zoning_lookup")
+
+        result = await tool(city="calgary", address="123 Main St")
+
+        assert "Error" in result
+        assert "timed out" in result.lower()
+        assert "ReadTimeout" not in result
+
+    @pytest.mark.asyncio
+    async def test_zoning_lookup_http_500(self, mock_client, mock_config):
+        request = httpx.Request("GET", "https://clevertech.ca/api/calgary/zoning/by-gps")
+        response = httpx.Response(500, request=request, text="boom")
+        mock_client.get = AsyncMock(
+            side_effect=httpx.HTTPStatusError(
+                "Server Error", request=request, response=response
+            )
+        )
+        tool = await _get_tool(mock_client, mock_config, "zoning_lookup")
+
+        result = await tool(city="calgary", lat=51.0447, lon=-114.0719)
+
+        assert "HTTP 500" in result
+        assert "No zoning district found" not in result
+
+    @pytest.mark.asyncio
+    async def test_zoning_lookup_http_403(self, mock_client, mock_config):
+        request = httpx.Request("GET", "https://clevertech.ca/api/calgary/zoning/by-gps")
+        response = httpx.Response(403, request=request, text="forbidden")
+        mock_client.get = AsyncMock(
+            side_effect=httpx.HTTPStatusError(
+                "Forbidden", request=request, response=response
+            )
+        )
+        tool = await _get_tool(mock_client, mock_config, "zoning_lookup")
+
+        result = await tool(city="calgary", lat=51.0447, lon=-114.0719)
+
+        assert "HTTP 403" in result
+        assert "No zoning district found" not in result
+
+    @pytest.mark.asyncio
+    async def test_zoning_lookup_propagates_value_error(
+        self, mock_client, mock_config
+    ):
+        mock_client.get = AsyncMock(side_effect=ValueError("boom"))
+        tool = await _get_tool(mock_client, mock_config, "zoning_lookup")
+
+        with pytest.raises(ValueError, match="boom"):
+            await tool(city="calgary", lat=51.0447, lon=-114.0719)
+
+    @pytest.mark.asyncio
+    async def test_zoning_lookup_propagates_runtime_error(
+        self, mock_client, mock_config
+    ):
+        mock_client.get = AsyncMock(side_effect=RuntimeError("boom"))
+        tool = await _get_tool(mock_client, mock_config, "zoning_lookup")
+
+        with pytest.raises(RuntimeError, match="boom"):
+            await tool(city="calgary", address="123 Main St")
+
+
+class TestZoningCodes:
+    @pytest.mark.asyncio
+    async def test_codes_success(self, mock_client, mock_config):
+        mock_client.get = AsyncMock(
+            return_value={"codes": [{"code": "R-CG", "description": "Residential"}]}
+        )
+        tool = await _get_tool(mock_client, mock_config, "zoning_codes")
+
+        result = await tool(city="calgary")
+
+        mock_client.get.assert_called_once_with(
+            "/api/calgary/zoning/codes", api_key=None
+        )
+        assert "Zoning codes (1)" in result
+        assert "- R-CG: Residential" in result
+
+
+class TestZoningByCode:
+    @pytest.mark.asyncio
+    async def test_by_code_query_param_keeps_slash(
+        self, mock_client, mock_config, sample_zoning
+    ):
+        mock_client.get = AsyncMock(return_value={"zoning": sample_zoning})
+        tool = await _get_tool(mock_client, mock_config, "zoning_by_code")
+
+        result = await tool(city="calgary", code="CR20-C20/R20")
+
+        call_args = mock_client.get.call_args
+        assert call_args[0][0] == "/api/calgary/zoning/by-code"
+        assert call_args[1]["params"] == {"code": "CR20-C20/R20"}
+        assert "by-code/CR20" not in call_args[0][0]
+        assert "Zone: R-CG" in result
+
+    @pytest.mark.asyncio
+    async def test_by_code_requires_code(self, mock_client, mock_config):
+        limiter = MagicMock()
+        mock_client.get = AsyncMock()
+        tool = await _get_tool(mock_client, mock_config, "zoning_by_code", limiter)
+
+        result = await tool(city="calgary")
+
+        limiter.check_or_raise.assert_not_called()
+        mock_client.get.assert_not_called()
+        assert "provide code" in result

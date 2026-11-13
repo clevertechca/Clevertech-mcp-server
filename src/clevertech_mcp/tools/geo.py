@@ -1,9 +1,6 @@
 """Geocoding MCP tools."""
 
-from typing import Annotated
-
 from mcp.server.fastmcp import FastMCP, Context
-from pydantic import Field
 from clevertech_mcp.client import CleverTechClient
 from clevertech_mcp.rate_limit import LocalRateLimiter
 from clevertech_mcp.auth import (
@@ -21,25 +18,15 @@ def register_geo_tools(
 
     @mcp.tool(
         name="reverse_geocode",
-        description=(
-            "Convert GPS coordinates to a human-readable address, city, "
-            "neighborhood, province, DLS grid reference, and — when available — "
-            "the nearest property's roll number and assessed value. Works across "
-            "all Canadian cities in the CleverTech database."
-        ),
+        description="Convert GPS coordinates to a human-readable address, city, neighborhood, province, and DLS grid reference. Works across all Canadian cities in the CleverTech database.",
     )
-    async def reverse_geocode(
-        lat: Annotated[
-            float,
-            Field(description="Latitude in decimal degrees (WGS84). Required."),
-        ],
-        lon: Annotated[
-            float,
-            Field(description="Longitude in decimal degrees (WGS84). Required."),
-        ],
-        ctx: Context = None,
-    ) -> str:
-        """Reverse geocode GPS coordinates with optional property lookup."""
+    async def reverse_geocode(lat: float, lon: float, ctx: Context = None) -> str:
+        """Reverse geocode GPS coordinates.
+
+        Args:
+            lat: Latitude
+            lon: Longitude
+        """
         # Resolve user API key and rate limit anonymous users
         user_key = _get_user_api_key(ctx)
         upstream_key = get_upstream_key(user_key, config.get("api_key"))
@@ -67,55 +54,6 @@ def register_geo_tools(
             lines.append(f"GPS: {data['lat']}, {data['lon']}")
         if data.get("confidence"):
             lines.append(f"Confidence: {data['confidence']}")
-
-        # Best-effort nearest property: prefer street segment, not full Nominatim string
-        city_name = data.get("city", "").strip()
-        geocoded_address = data.get("address", "").strip()
-        city_slug = (
-            data.get("city_slug")
-            or city_name.lower().replace(" ", "-").replace("'", "")
-        )
-        # "9 Avenue SW, Downtown Commercial Core, Calgary..." → "9 Avenue SW"
-        street_query = geocoded_address.split(",")[0].strip() if geocoded_address else ""
-        # Heuristic: Avenue → AV (common assessment abbreviation)
-        street_query_abbr = (
-            street_query.replace(" Avenue ", " AV ")
-            .replace(" Street ", " ST ")
-            .replace(" Road ", " RD ")
-            .replace(" Drive ", " DR ")
-            .replace(" Boulevard ", " BLVD ")
-            .replace(" Trail ", " TR ")
-            if street_query
-            else ""
-        )
-
-        if city_slug and street_query:
-            for query in (street_query_abbr, street_query):
-                if not query:
-                    continue
-                try:
-                    prop_data = await client.get(
-                        f"/api/{city_slug}/property/search",
-                        params={"address": query, "limit": 1},
-                        api_key=upstream_key,
-                    )
-                    props = prop_data.get("results", [])
-                    if props:
-                        prop = props[0]
-                        lines.append("")
-                        lines.append("**Nearest Property:**")
-                        lines.append(f"- Address: {prop.get('address', 'N/A')}")
-                        lines.append(f"- Roll: {prop.get('roll_number', 'N/A')}")
-                        if prop.get("assessed_value") is not None:
-                            lines.append(
-                                f"- Assessed Value: ${prop['assessed_value']:,.0f}"
-                            )
-                        if prop.get("property_type"):
-                            lines.append(f"- Type: {prop['property_type']}")
-                        break
-                except Exception:
-                    pass  # Property lookup is best-effort
-
         if data.get("_message"):
             lines.append(f"\n{data['_message']}")
 

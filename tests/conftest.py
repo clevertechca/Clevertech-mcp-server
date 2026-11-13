@@ -71,6 +71,17 @@ def register_and_get_tool(
 # Fixtures
 # ---------------------------------------------------------------------------
 
+@pytest.fixture(autouse=True)
+def clear_clevertech_api_key(monkeypatch):
+    """Keep tests independent of a developer machine's CLEVERTECH_API_KEY.
+
+    Several tools assert ``api_key=None`` on the mocked client. If the env var
+    is set, ``_get_user_api_key`` treats it as a user key and those assertions
+    fail. Tests that need the var set it themselves with ``patch.dict``.
+    """
+    monkeypatch.delenv("CLEVERTECH_API_KEY", raising=False)
+
+
 @pytest.fixture
 def mock_client():
     """Create a mock CleverTechClient with AsyncMock get/post methods."""
@@ -173,8 +184,124 @@ def sample_business():
         "corporation_name": "ACME CANADA INC.",
         "corporation_number": "123456-7",
         "status": "Active",
-        "province": "AB",
+        "jurisdiction": "AB",
         "registered_address": "100 Business Park, Calgary AB T2P 1A1",
+    }
+
+
+@pytest.fixture
+def sample_census_profile():
+    """Sample CensusProfile returned by /census/profile or nested in by-gps."""
+    return {
+        "da_id": "48060645",
+        "census_year": 2021,
+        "geography_name": "Calgary",
+        "geography_type": "DA",
+        "population": 1027,
+        "households": 480,
+        "avg_income": 52000,
+        "median_age": 30.4,
+        "median_income": 44400,
+        "dwelling_count": 510,
+        "data": {"density": 4200.5, "household_size": 2.1},
+    }
+
+
+@pytest.fixture
+def sample_census_by_gps(sample_census_profile):
+    """Sample CensusByDLSResponse from /census/by-gps."""
+    return {
+        "dls": None,
+        "lat": 51.045,
+        "lon": -114.072,
+        "da_id": "48060645",
+        "ct_id": "8250001.00",
+        "cma_id": "825",
+        "profile": sample_census_profile,
+        "matched_by": "point_in_polygon",
+        "distance_km": 0.0,
+    }
+
+
+@pytest.fixture
+def sample_census_by_dls(sample_census_profile):
+    """Sample CensusByDLSResponse from /census/by-dls."""
+    return {
+        "dls": "NW-16-24-1-W5",
+        "lat": 51.0447,
+        "lon": -114.0719,
+        "da_id": "48060645",
+        "profile": sample_census_profile,
+        "matched_by": "exact_dls",
+        "distance_km": 0.12,
+    }
+
+
+@pytest.fixture
+def sample_safety_incident():
+    """Sample SafetyInvolvedPerson row (Toronto live-check style id)."""
+    return {
+        "source_record_id": "toronto_shootings:GO-2004195761",
+        "source_family": "toronto_shootings",
+        "category": "shooting",
+        "injury": "none",
+        "neighbourhood": "Yonge-St. Clair",
+        "street_label": "Yonge St",
+        "occurred_at": "2004-01-15T00:00:00",
+        "road_user": None,
+        "lat": 43.7141,
+        "lon": -79.3895,
+        "city_slug": "toronto",
+    }
+
+
+@pytest.fixture
+def sample_tower():
+    """Sample ISED tower row."""
+    return {
+        "tower_id": "T-1001",
+        "carrier": "Rogers",
+        "client_name": "Rogers Communications",
+        "city": "Calgary",
+        "province": "AB",
+        "technology": "5G",
+        "height_meters": 45.0,
+        "latitude": 51.045,
+        "longitude": -114.072,
+        "address": "308 4 AV SW",
+    }
+
+
+@pytest.fixture
+def sample_microwave_link():
+    """Sample ISED microwave link / authorization row."""
+    return {
+        "authorization_number": "0002315559",
+        "licensee": "TELUS",
+        "frequency_band": "11 GHz",
+        "province": "AB",
+        "distance_km": 1.2,
+    }
+
+
+@pytest.fixture
+def sample_safety_stats():
+    """Sample /safety/stats payload."""
+    return {
+        "total_rows": 12840,
+        "distinct_collisions": 4100,
+        "by_injury": {"none": 9000, "minor": 3000, "fatal": 40},
+        "by_category": {"collision": 12000, "shooting": 840},
+    }
+
+
+@pytest.fixture
+def sample_census_stats():
+    """Sample /census/stats payload."""
+    return {
+        "total_profiles": 3919,
+        "census_years": [2016, 2021],
+        "by_geography_type": {"DA": 3800, "CT": 119},
     }
 
 

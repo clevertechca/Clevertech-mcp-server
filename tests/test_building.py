@@ -5,7 +5,7 @@ and building_permit_recent (success and empty).
 """
 
 import pytest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 from clevertech_mcp.tools.building import register_building_tools
 
@@ -16,9 +16,9 @@ from tests.conftest import register_and_get_tool
 # Helpers
 # ---------------------------------------------------------------------------
 
-async def _get_tool(client, config, name: str):
+async def _get_tool(client, config, name: str, mock_rate_limiter=None):
     return register_and_get_tool(
-        register_building_tools, client, config, name
+        register_building_tools, client, config, name, mock_rate_limiter
     )
 
 
@@ -43,7 +43,7 @@ class TestBuildingPermitSearch:
 
         mock_client.get.assert_called_once()
         call_args = mock_client.get.call_args
-        assert "calgary" in call_args[0][0]
+        assert call_args[0][0] == "/api/calgary/permits/search"
         assert call_args[1]["params"]["q"] == "456 Oak Ave"
         assert call_args[1]["params"]["limit"] == 20
 
@@ -158,6 +158,8 @@ class TestBuildingPermitRecent:
         assert "BP-2024-001" in result
         assert "BP-2024-002" in result
         assert "Demolition" in result
+        assert "Applicant" not in result
+        assert "John Smith" not in result
 
     @pytest.mark.asyncio
     async def test_building_permit_recent_empty(self, mock_client, mock_config):
@@ -179,3 +181,86 @@ class TestBuildingPermitRecent:
         await tool(city="ottawa", limit=500)
 
         assert mock_client.get.call_args[1]["params"]["limit"] == 100
+        assert mock_client.get.call_args[0][0] == "/api/ottawa/permits/recent"
+
+
+class TestBuildingPermitNearby:
+    @pytest.mark.asyncio
+    async def test_nearby_success(self, mock_client, mock_config, sample_permit):
+        mock_client.get = AsyncMock(return_value={"results": [sample_permit], "total": 1})
+        tool = await _get_tool(mock_client, mock_config, "building_permit_nearby")
+
+        result = await tool(city="calgary", lat=51.045, lon=-114.072)
+
+        call_args = mock_client.get.call_args
+        assert call_args[0][0] == "/api/calgary/permits/nearby"
+        assert call_args[1]["params"]["lat"] == 51.045
+        assert "Permit: BP-2024-001" in result
+
+    @pytest.mark.asyncio
+    async def test_nearby_rejects_out_of_bounds(self, mock_client, mock_config):
+        limiter = MagicMock()
+        mock_client.get = AsyncMock()
+        tool = await _get_tool(mock_client, mock_config, "building_permit_nearby", limiter)
+
+        result = await tool(city="calgary", lat=0.0, lon=0.0)
+
+        limiter.check_or_raise.assert_not_called()
+        mock_client.get.assert_not_called()
+        assert "Canadian bounds" in result
+
+
+class TestBuildingPermitGet:
+    @pytest.mark.asyncio
+    async def test_get_success(self, mock_client, mock_config, sample_permit):
+        mock_client.get = AsyncMock(return_value=sample_permit)
+        tool = await _get_tool(mock_client, mock_config, "building_permit_get")
+
+        result = await tool(city="calgary", permit_id="BP2006-19957")
+
+        assert mock_client.get.call_args[0][0] == "/api/calgary/permits/BP2006-19957"
+        assert "Permit: BP-2024-001" in result
+
+    @pytest.mark.asyncio
+    async def test_get_requires_id(self, mock_client, mock_config):
+        limiter = MagicMock()
+        mock_client.get = AsyncMock()
+        tool = await _get_tool(mock_client, mock_config, "building_permit_get", limiter)
+
+        result = await tool(city="calgary")
+
+        limiter.check_or_raise.assert_not_called()
+        mock_client.get.assert_not_called()
+        assert "permit_id" in result
+
+
+class TestBuildingPermitStats:
+    @pytest.mark.asyncio
+    async def test_stats_success(self, mock_client, mock_config):
+        mock_client.get = AsyncMock(
+            return_value={"total_permits": 12000, "by_status": {"Issued": 8000}}
+        )
+        tool = await _get_tool(mock_client, mock_config, "building_permit_stats")
+
+        result = await tool(city="calgary")
+
+        mock_client.get.assert_called_once_with(
+            "/api/calgary/permits/stats", api_key=None
+        )
+        assert "total_permits: 12000" in result
+        assert "- Issued: 8000" in result
+
+
+class TestBuildingPermitBatch:
+    @pytest.mark.asyncio
+    async def test_batch_success(self, mock_client, mock_config, sample_permit):
+        mock_client.post = AsyncMock(return_value={"found": [sample_permit]})
+        tool = await _get_tool(mock_client, mock_config, "building_permit_batch")
+
+        result = await tool(city="calgary", permit_numbers=["BP-2024-001"])
+
+        assert mock_client.post.call_args[0][0] == "/api/calgary/permits/batch"
+        assert mock_client.post.call_args[1]["json"] == {
+            "ids": ["BP-2024-001"]
+        }
+        assert "Permit: BP-2024-001" in result
